@@ -1,0 +1,2721 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASCII Audio Face</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'JetBrains Mono', 'Fira Code', 'DejaVu Sans Mono', monospace; }
+        body { 
+            overflow: hidden; 
+            background: linear-gradient(135deg, #0a0a12, #0f0f1a);
+            height: 100vh; 
+            position: relative;
+            color: #e0e0ff;
+        }
+        canvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            image-rendering: pixelated;
+        }
+        #window {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 15, 30, 0.95);
+            border: 1px solid rgba(100, 100, 200, 0.2);
+            box-shadow: 0 0 30px rgba(0, 10, 30, 0.8), 
+                        inset 0 0 15px rgba(80, 80, 150, 0.1);
+            backdrop-filter: blur(5px);
+            overflow: hidden;
+            border-radius: 8px;
+        }
+        .audio-controls {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+            margin-right: 10px;
+        }
+        .audio-control-btn {
+            background: rgba(40, 40, 70, 0.7);
+            border: 1px solid rgba(100, 120, 200, 0.4);
+            color: #a0c0ff;
+            width: 22px;
+            height: 22px;
+            border-radius: 3px;
+            font-size: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+        .audio-control-btn:hover {
+            background: rgba(60, 60, 100, 0.9);
+            border-color: rgba(120, 150, 255, 0.7);
+            transform: scale(1.1);
+        }
+        .audio-control-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            z-index: 100;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        #mainControl {
+            background: linear-gradient(135deg, #2a3a5a, #1a2535);
+            border: 1px solid rgba(100, 150, 220, 0.4);
+            color: #ff0077;
+            width: 48px;
+            height: 48px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 12px rgba(200, 0, 100, 0.4),
+                       inset 0 0 8px rgba(255, 50, 150, 0.3);
+            z-index: 101;
+            transition: all 0.3s ease;
+            text-shadow: 0 0 5px rgba(255, 0, 100, 0.7);
+        }
+        #mainControl:hover {
+            background: linear-gradient(135deg, #304565, #203045);
+            transform: scale(1.05);
+            box-shadow: 0 0 15px rgba(220, 0, 120, 0.6),
+                       inset 0 0 10px rgba(255, 80, 180, 0.5);
+            color: #ff33aa;
+        }
+        #mainControl:active {
+            transform: scale(0.95);
+        }
+        .extra-controls {
+            display: none;
+            background: rgba(25, 25, 45, 0.92);
+            border: 1px solid rgba(100, 120, 200, 0.3);
+            border-radius: 8px;
+            padding: 10px;
+            box-shadow: 0 4px 15px rgba(0, 10, 30, 0.5),
+                       inset 0 0 10px rgba(50, 70, 150, 0.2);
+            backdrop-filter: blur(3px);
+            z-index: 100;
+        }
+        .extra-controls.active {
+            display: flex;
+            gap: 10px;
+        }
+        .control-btn {
+            background: linear-gradient(135deg, #1e2e4e, #152038);
+            border: 1px solid rgba(100, 130, 220, 0.5);
+            color: #80b0ff;
+            border-radius: 6px;
+            padding: 6px 12px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            z-index: 102;
+            box-shadow: 0 2px 6px rgba(0, 20, 50, 0.4);
+        }
+        .control-btn:hover {
+            background: linear-gradient(135deg, #253865, #1a2845);
+            border-color: rgba(120, 150, 255, 0.7);
+            transform: translateY(-1px);
+            box-shadow: 0 3px 8px rgba(0, 30, 70, 0.6),
+                       0 0 10px rgba(80, 120, 220, 0.3);
+        }
+        .control-btn:active {
+            transform: translateY(1px);
+            box-shadow: 0 1px 4px rgba(0, 15, 40, 0.5);
+        }
+        #fileInput, #audioFileInput, #backgroundFileInput, #endImageFileInput {
+            display: none;
+        }
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #70b0ff;
+            font-size: 19px;
+            text-shadow: 0 0 10px rgba(100, 180, 255, 0.6);
+            z-index: 200;
+            display: none;
+            background: rgba(25, 25, 45, 0.9);
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: 1px solid rgba(100, 150, 255, 0.4);
+            box-shadow: 0 0 15px rgba(0, 30, 80, 0.6);
+        }
+        .config-panel {
+            position: absolute;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(25, 25, 45, 0.95);
+            border: 1px solid rgba(100, 120, 200, 0.35);
+            border-radius: 10px;
+            padding: 12px;
+            z-index: 110;
+            display: none;
+            box-shadow: 0 5px 25px rgba(0, 10, 30, 0.6),
+                       inset 0 0 15px rgba(40, 60, 120, 0.2);
+            backdrop-filter: blur(8px);
+            max-width: 300px;
+            width: 300px;
+            height: 90vh;
+            overflow-y: auto;
+            font-size: 13px;
+        }
+        .config-panel.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px) translateY(-50%); }
+            to { opacity: 1; transform: translateY(-50%); }
+        }
+        .config-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+            border-bottom: 1px solid rgba(100, 120, 200, 0.25);
+            padding-bottom: 6px;
+            gap: 4px;
+        }
+        .tab-btn {
+            padding: 4px 8px;
+            background: rgba(40, 40, 70, 0.6);
+            border: 1px solid rgba(80, 100, 180, 0.3);
+            border-radius: 4px 4px 0 0;
+            color: #90b0ff;
+            font-size: 11px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+        .tab-btn:hover {
+            background: rgba(50, 50, 90, 0.8);
+            border-color: rgba(100, 130, 220, 0.5);
+            color: #a0c0ff;
+        }
+        .tab-btn.active {
+            background: linear-gradient(135deg, #2a3a6a, #1e2a4e);
+            border-color: rgba(120, 150, 255, 0.7);
+            color: #c0dfff;
+            box-shadow: 0 2px 4px rgba(0, 20, 50, 0.4),
+                       inset 0 0 3px rgba(100, 150, 255, 0.3);
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-5px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        .config-group {
+            margin-bottom: 12px;
+            padding-bottom: 10px;
+            border-bottom: 1px dashed rgba(80, 100, 180, 0.1);
+        }
+        .config-group:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        .config-group label {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 11px;
+            color: #b0c8ff;
+            font-weight: 500;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .config-value {
+            font-size: 10px;
+            color: #70a0ff;
+            background: rgba(30, 30, 60, 0.6);
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        .config-slider {
+            width: 100%;
+            height: 6px;
+            background: linear-gradient(90deg, #1a2540, #253555);
+            outline: none;
+            border-radius: 3px;
+            -webkit-appearance: none;
+            margin-top: 3px;
+            border: 1px solid rgba(100, 130, 200, 0.3);
+        }
+        .config-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+            background: linear-gradient(135deg, #3a5080, #2a406a);
+            cursor: pointer;
+            border: 2px solid rgba(120, 160, 255, 0.6);
+            box-shadow: 0 0 4px rgba(80, 120, 220, 0.5);
+            transition: all 0.2s ease;
+        }
+        .config-select {
+            width: 100%;
+            padding: 5px 7px;
+            background: rgba(30, 30, 60, 0.8);
+            border: 1px solid rgba(100, 130, 200, 0.4);
+            color: #90b8ff;
+            border-radius: 5px;
+            font-size: 11px;
+            margin-top: 2px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .close-panel {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            background: linear-gradient(135deg, #4a2a2a, #351e1e);
+            border: 1px solid rgba(180, 100, 100, 0.4);
+            color: #ffc0c0;
+            width: 22px;
+            height: 22px;
+            border-radius: 5px;
+            font-size: 12px;
+            cursor: pointer;
+            z-index: 200;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+        .close-panel:hover {
+            background: linear-gradient(135deg, #603535, #4a2525);
+            transform: rotate(90deg);
+            box-shadow: 0 0 8px rgba(200, 80, 80, 0.5);
+        }
+        .color-preview {
+            display: inline-block;
+            width: 20px;
+            height: 8px;
+            border-radius: 2px;
+            margin-left: 8px;
+            vertical-align: middle;
+            border: 1px solid rgba(150, 180, 255, 0.3);
+        }
+        .transparent-preview {
+            width: 100%;
+            height: 60px;
+            background: linear-gradient(45deg, #aaa 25%, transparent 25%, transparent 75%, #aaa 75%, #aaa), 
+                      linear-gradient(45deg, #aaa 25%, #444 25%, #444 75%, #aaa 75%, #aaa);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+            border: 1px solid rgba(100, 120, 200, 0.25);
+            margin-top: 8px;
+            border-radius: 5px;
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: monospace;
+            font-size: 12px;
+            color: rgba(150, 180, 255, 0.8);
+            box-shadow: inset 0 0 10px rgba(50, 80, 150, 0.2);
+        }
+        /* Estilo para el fondo GIF */
+        #gifBackground {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: -1;
+            display: none;
+            opacity: 1;
+            transition: opacity 0.3s ease;
+        }
+        .brightness-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: black;
+            z-index: 0;
+            opacity: 0;
+            pointer-events: none;
+        }
+        /* Diálogos personalizados */
+        .dialog-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            backdrop-filter: blur(5px);
+            display: none;
+        }
+        .dialog-box {
+            background: rgba(20, 20, 40, 0.95);
+            border: 1px solid rgba(100, 120, 200, 0.4);
+            border-radius: 10px;
+            padding: 20px;
+            min-width: 300px;
+            max-width: 500px;
+            box-shadow: 0 10px 40px rgba(0, 0, 30, 0.8);
+            border-top: 2px solid rgba(100, 150, 255, 0.6);
+        }
+        .dialog-title {
+            color: #a0c0ff;
+            font-size: 16px;
+            margin-bottom: 15px;
+            font-weight: bold;
+            text-align: center;
+            text-shadow: 0 0 8px rgba(100, 150, 255, 0.5);
+        }
+        .dialog-message {
+            color: #c0d0ff;
+            font-size: 14px;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+        .dialog-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        .dialog-btn {
+            padding: 8px 20px;
+            border-radius: 6px;
+            border: 1px solid rgba(100, 150, 220, 0.4);
+            background: linear-gradient(135deg, #2a3a5a, #1a2535);
+            color: #a0c0ff;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            min-width: 80px;
+        }
+        .dialog-btn:hover {
+            background: linear-gradient(135deg, #304565, #203045);
+            border-color: rgba(120, 150, 255, 0.7);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 30, 70, 0.5);
+        }
+        .dialog-btn.primary {
+            background: linear-gradient(135deg, #2a5a3a, #1a3525);
+            border-color: rgba(100, 220, 100, 0.4);
+            color: #a0ffc0;
+        }
+        .dialog-btn.danger {
+            background: linear-gradient(135deg, #5a2a2a, #351a1a);
+            border-color: rgba(220, 100, 100, 0.4);
+            color: #ffc0c0;
+        }
+        /* Botones de configuración adicionales */
+        .config-buttons {
+            margin-top: 15px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .config-save-btn {
+            background: linear-gradient(135deg, #2a5a3a, #1a3525);
+            border: 1px solid rgba(100, 220, 100, 0.4);
+            color: #a0ffc0;
+            border-radius: 5px;
+            padding: 6px 10px;
+            font-size: 11px;
+            cursor: pointer;
+            flex: 1;
+            text-align: center;
+            transition: all 0.2s ease;
+        }
+        .config-save-btn:hover {
+            background: linear-gradient(135deg, #306545, #204530);
+            border-color: rgba(120, 255, 120, 0.7);
+            transform: translateY(-1px);
+        }
+        .config-load-btn {
+            background: linear-gradient(135deg, #2a3a5a, #1a2535);
+            border: 1px solid rgba(100, 150, 220, 0.4);
+            color: #a0c0ff;
+            border-radius: 5px;
+            padding: 6px 10px;
+            font-size: 11px;
+            cursor: pointer;
+            flex: 1;
+            text-align: center;
+            transition: all 0.2s ease;
+        }
+        .config-load-btn:hover {
+            background: linear-gradient(135deg, #304565, #203045);
+            border-color: rgba(120, 180, 255, 0.7);
+            transform: translateY(-1px);
+        }
+        /* Select con flechas */
+        .select-container {
+            position: relative;
+            width: 100%;
+        }
+        .select-container select {
+            appearance: none;
+            padding-right: 30px;
+        }
+        .select-arrow {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            pointer-events: none;
+            color: #90b8ff;
+            font-size: 12px;
+        }
+        .arrow-nav {
+            display: flex;
+            gap: 5px;
+            margin-top: 5px;
+            justify-content: center;
+        }
+        .arrow-btn {
+            background: rgba(40, 40, 70, 0.7);
+            border: 1px solid rgba(100, 120, 200, 0.4);
+            color: #a0c0ff;
+            width: 24px;
+            height: 24px;
+            border-radius: 3px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+        }
+        .arrow-btn:hover {
+            background: rgba(60, 60, 100, 0.9);
+            border-color: rgba(120, 150, 255, 0.7);
+        }
+        /* Estilos para la barra de desplazamiento del config-panel */
+        .config-panel::-webkit-scrollbar {
+            width: 10px;
+        }
+        .config-panel::-webkit-scrollbar-track {
+            background: rgba(20, 20, 40, 0.5);
+            border-radius: 5px;
+            margin: 2px;
+        }
+        .config-panel::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #2a3a6a, #1e2a4e);
+            border-radius: 5px;
+            border: 2px solid rgba(100, 120, 200, 0.2);
+        }
+        .config-panel::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, #304575, #233055);
+            border-color: rgba(120, 150, 255, 0.4);
+        }
+        .config-panel::-webkit-scrollbar-thumb:active {
+            background: linear-gradient(135deg, #1e2a4e, #152038);
+        }
+        .config-panel {
+            scrollbar-width: thin;
+            scrollbar-color: #2a3a6a rgba(20, 20, 40, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <!-- Diálogos personalizados -->
+    <div class="dialog-overlay" id="dialogOverlay">
+        <div class="dialog-box">
+            <div class="dialog-title" id="dialogTitle">Título</div>
+            <div class="dialog-message" id="dialogMessage">Mensaje</div>
+            <div class="dialog-buttons">
+                <button class="dialog-btn" id="dialogCancel">Cancelar</button>
+                <button class="dialog-btn primary" id="dialogConfirm">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="window">
+        <!-- Elemento para el fondo GIF -->
+        <img id="gifBackground" alt="Fondo GIF">
+        <div class="brightness-overlay" id="brightnessOverlay"></div>
+        
+        <canvas id="canvas"></canvas>
+    </div>
+    
+    <div id="controls">
+        <div class="audio-controls">
+            <button class="audio-control-btn" id="playButton" title="Reproducir">▶</button>
+            <button class="audio-control-btn" id="pauseButton" title="Pausar">⏸⏸</button>
+            <button class="audio-control-btn" id="stopButton" title="Detener">⏹</button>
+            <button class="audio-control-btn" id="loadEndImageButton" title="Cargar imagen de fin">🖼️</button>
+            <input type="file" id="endImageFileInput" accept="image/*" style="display: none;">
+        </div>
+        <button id="mainControl">jUSTIC3</button>
+        <div class="extra-controls" id="extraControls">
+            <button class="control-btn" id="loadImageButton">CARGAR IMAGEN</button>
+            <button class="control-btn" id="loadAudioButton">CARGAR AUDIO</button>
+            <button class="control-btn" id="loadBackgroundButton">CARGAR FONDO GIF</button>
+            <button class="control-btn" id="configButton">AJUSTES</button>
+        </div>
+    </div>
+    
+    <div class="config-panel" id="configPanel">
+        <button class="close-panel" id="closeConfigPanel">×</button>
+        
+        <div class="config-tabs">
+            <button class="tab-btn active" data-tab="mouth">BOCA</button>
+            <button class="tab-btn" data-tab="audio">AUDIO</button>
+            <button class="tab-btn" data-tab="visual">VISUAL</button>
+            <button class="tab-btn" data-tab="transparency">TRANSPARENCIA</button>
+            <button class="tab-btn" data-tab="background">FONDO</button>
+            <button class="tab-btn" data-tab="glitch">GLITCH</button>
+        </div>
+        
+        <div class="tab-content active" id="mouthTab">
+            <div class="config-group">
+                <label>Latencia boca <span class="config-value" id="mouthLatencyValue">5</span></label>
+                <input type="range" class="config-slider" id="mouthLatencySlider" min="1" max="100" step="1" value="5">
+                <div style="font-size:9px;color:#90a8d8;margin-top:2px;">1=Mínima, 100=Máxima</div>
+            </div>
+            <div class="config-group">
+                <label>Sensibilidad boca <span class="config-value" id="sensitivityValue">6</span></label>
+                <input type="range" class="config-slider" id="sensitivitySlider" min="1" max="10" step="1" value="6">
+                <div style="font-size:9px;color:#90a8d8;margin-top:2px;">1=Baja, 10=Alta</div>
+            </div>
+            <div class="config-group">
+                <label>Brillo boca <span class="config-value" id="mouthGlowValue">0</span></label>
+                <input type="range" class="config-slider" id="mouthGlowSlider" min="0" max="10" step="1" value="0">
+                <div style="font-size:9px;color:#90a8d8;margin-top:2px;">0=Ninguno, 10=Brillo máximo</div>
+            </div>
+            <div class="config-group">
+                <label>Animación boca</label>
+                <div class="select-container">
+                    <select class="config-select" id="mouthAnimationSelect">
+                        <option value="natural">Natural (labios)</option>
+                        <option value="square">Cuadrada (robot)</option>
+                        <option value="elastic">Elástica (divertida)</option>
+                        <option value="wave">Onda (fluida)</option>
+                        <option value="pulse">Pulso (ritmo)</option>
+                        <option value="bounce">Rebote (energética)</option>
+                        <option value="bar">Barra (igualador)</option>
+                        <option value="wave2">Ondas complejas</option>
+                        <option value="rain">Lluvia de código</option>
+                        <option value="spiral">Espiral</option>
+                        <option value="particles">Partículas</option>
+                    </select>
+                    <div class="select-arrow">▼</div>
+                </div>
+                <div class="arrow-nav">
+                    <button class="arrow-btn" data-target="mouthAnimationSelect" data-direction="prev">◀</button>
+                    <button class="arrow-btn" data-target="mouthAnimationSelect" data-direction="next">▶</button>
+                </div>
+            </div>
+            <div class="config-group">
+                <label>Administración boca <span class="config-value" id="mouthControlValue">50</span></label>
+                <input type="range" class="config-slider" id="mouthControlSlider" min="10" max="100" step="1" value="50">
+                <div style="font-size:9px;color:#90a8d8;margin-top:2px;">10=Limitada, 100=Completa</div>
+            </div>
+            <div class="config-group">
+                <label>Posición horizontal boca <span class="config-value" id="mouthXValue">0.50</span></label>
+                <input type="range" class="config-slider" id="mouthXSlider" min="0.2" max="0.8" step="0.01" value="0.5">
+            </div>
+            <div class="config-group">
+                <label>Posición vertical boca <span class="config-value" id="mouthYValue">0.70</span></label>
+                <input type="range" class="config-slider" id="mouthYSlider" min="0.4" max="0.85" step="0.01" value="0.7">
+            </div>
+            <div class="config-group">
+                <label>Ancho boca <span class="config-value" id="mouthWidthValue">0.20</span></label>
+                <input type="range" class="config-slider" id="mouthWidthSlider" min="0.05" max="0.5" step="0.01" value="0.2">
+            </div>
+            <div class="config-group">
+                <label>Alto boca <span class="config-value" id="mouthHeightValue">0.12</span></label>
+                <input type="range" class="config-slider" id="mouthHeightSlider" min="0.03" max="0.3" step="0.01" value="0.12">
+            </div>
+        </div>
+        
+        <div class="tab-content" id="audioTab">
+            <div class="config-group">
+                <label>Reactividad audio <span class="config-value" id="audioReactivityValue">10</span></label>
+                <input type="range" class="config-slider" id="audioReactivitySlider" min="1" max="10" step="1" value="10">
+                <div style="font-size:9px;color:#90a8d8;margin-top:2px;">1=Baja, 10=Alta</div>
+            </div>
+            <div class="config-group">
+                <label>Suavizado sonido <span class="config-value" id="smoothingValue">0.1</span></label>
+                <input type="range" class="config-slider" id="smoothingSlider" min="0.01" max="0.9" step="0.01" value="0.1">
+                <div style="font-size:9px;color:#90a8d8;margin-top:2px;">0.01=Instantáneo, 0.9=Suave</div>
+            </div>
+            <div class="config-group">
+                <label>Filtro ruido <span class="config-value" id="noiseFilterValue">0.01</span></label>
+                <input type="range" class="config-slider" id="noiseFilterSlider" min="0.01" max="0.2" step="0.01" value="0.01">
+                <div style="font-size:9px;color:#90a8d8;margin-top:2px;">0.01=Estricto, 0.2=Flexible</div>
+            </div>
+            <div class="config-group">
+                <label>Latencia audio <span class="config-value" id="audioLatencyValue">10</span></label>
+                <input type="range" class="config-slider" id="audioLatencySlider" min="1" max="100" step="1" value="10">
+                <div style="font-size:9px;color:#90a8d8;margin-top:2px;">1=Mínima, 100=Máxima</div>
+            </div>
+            <div class="config-group">
+                <label>Tipo de entrada</label>
+                <div class="select-container">
+                    <select class="config-select" id="audioInputSelect">
+                        <option value="file">Archivo de audio</option>
+                        <option value="microphone">Micrófono</option>
+                    </select>
+                    <div class="select-arrow">▼</div>
+                </div>
+                <div class="arrow-nav">
+                    <button class="arrow-btn" data-target="audioInputSelect" data-direction="prev">◀</button>
+                    <button class="arrow-btn" data-target="audioInputSelect" data-direction="next">▶</button>
+                </div>
+            </div>
+            <div class="config-group">
+                <label>Modo de audio</label>
+                <div class="select-container">
+                    <select class="config-select" id="audioModeSelect">
+                        <option value="realtime">Tiempo real (mínima latencia)</option>
+                        <option value="balanced">Balanceado</option>
+                        <option value="quality">Alta calidad</option>
+                    </select>
+                    <div class="select-arrow">▼</div>
+                </div>
+                <div class="arrow-nav">
+                    <button class="arrow-btn" data-target="audioModeSelect" data-direction="prev">◀</button>
+                    <button class="arrow-btn" data-target="audioModeSelect" data-direction="next">▶</button>
+                </div>
+            </div>
+            <div class="config-group">
+                <label>Repetir audio automáticamente</label>
+                <input type="checkbox" id="loopAudioToggle" style="margin-top:5px;">
+                <div style="font-size:9px;color:#90a8d8;margin-top:2px;">Activa para que el audio se repita al finalizar</div>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="visualTab">
+            <div class="config-group">
+                <label>Densidad ASCII <span class="config-value" id="densityValue">3.0</span></label>
+                <input type="range" class="config-slider" id="densitySlider" min="1" max="20" step="0.1" value="3.0">
+                <div style="font-size:9px;color:#90a8d8;margin-top:2px;">1=Mínima, 20=Máxima (más granular)</div>
+            </div>
+            <div class="config-group">
+                <label>Intensidad ASCII <span class="config-value" id="intensityValue">1.0</span></label>
+                <input type="range" class="config-slider" id="intensitySlider" min="0.1" max="2.0" step="0.1" value="1.0">
+                <div style="font-size:9px;color:#90a8d8;margin-top:2px;">0.1=Suave, 2.0=Intensa</div>
+            </div>
+            <div class="config-group">
+                <label>Tipo de caracteres</label>
+                <div class="select-container">
+                    <select class="config-select" id="charSetSelect">
+                        <option value="binary">Binario (0/1)</option>
+                        <option value="code">Código (letras/símbolos)</option>
+                        <option value="alphanum">Alfanumérico</option>
+                        <option value="blocks">Bloques</option>
+                        <option value="custom">Símbolos (#$%@)</option>
+                        <option value="custom2">Símbolos complejos</option>
+                        <option value="matrix">Matrix (katakana)</option>
+                        <option value="arrows">Flechas</option>
+                        <option value="math">Matemáticas</option>
+                        <option value="greek">Griego</option>
+                        <option value="circles">Círculos</option>
+                        <option value="squares">Cuadrados</option>
+                        <option value="lines">Líneas</option>
+                        <option value="shading">Sombreado</option>
+                        <option value="braille">Braille</option>
+                        <option value="misc">Misceláneo</option>
+                        <option value="emoji">Emoji (🌐🔰)</option>
+                        <option value="currency">Monedas (€£•$¥)</option>
+                        <option value="chess">Ajedrez (♔♕♖)</option>
+                        <option value="music">Música (♩♪♫)</option>
+                        <option value="weather">Clima (🌡️🌧️🌪️)</option>
+                        <option value="zodiac">Zodiaco (♈♉♊)</option>
+                        <option value="cards">Cartas (🂡🂱🂮🃁)</option>
+                        <option value="technical">Técnico (⏏⏬⏯⏾)</option>
+                        <option value="hearts">Corazones (♥️❤️💔)</option>
+                        <option value="stars">Estrellas (⭐🌟⭑⛤)</option>
+                        <option value="runes">Runas (ᚠᚢᚦ)</option>
+                        <option value="cyrillic">Cirílico (АБВГ)</option>
+                        <option value="arabic">Árabe (ﺍﺏﺕ)</option>
+                        <option value="hebrew">Hebreo (אבּג)</option>
+                        <option value="dingbats">Dingbats (➀➁➂)</option>
+                    </select>
+                    <div class="select-arrow">▼</div>
+                </div>
+                <div class="arrow-nav">
+                    <button class="arrow-btn" data-target="charSetSelect" data-direction="prev">◀</button>
+                    <button class="arrow-btn" data-target="charSetSelect" data-direction="next">▶</button>
+                </div>
+            </div>
+            <div class="config-group">
+                <label>Brillo <span class="config-value" id="brightnessValue">0.6</span></label>
+                <input type="range" class="config-slider" id="brightnessSlider" min="0.1" max="1.0" step="0.1" value="0.6">
+            </div>
+            <div class="config-group">
+                <label>Contraste <span class="config-value" id="contrastValue">1.5</span></label>
+                <input type="range" class="config-slider" id="contrastSlider" min="0.5" max="3.0" step="0.1" value="1.5">
+            </div>
+            <div class="config-group">
+                <label>Color principal</label>
+                <div class="select-container">
+                    <select class="config-select" id="colorSchemeSelect">
+                        <option value="matrix">Matrix Verde</option>
+                        <option value="blue">Cyber Azul</option>
+                        <option value="red">Matrix Rojo</option>
+                        <option value="amber">Vintage Ámbar</option>
+                        <option value="rainbow">Arcoíris</option>
+                    </select>
+                    <div class="select-arrow">▼</div>
+                </div>
+                <span class="color-preview" id="colorPreview"></span>
+                <div class="arrow-nav">
+                    <button class="arrow-btn" data-target="colorSchemeSelect" data-direction="prev">◀</button>
+                    <button class="arrow-btn" data-target="colorSchemeSelect" data-direction="next">▶</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="transparencyTab">
+            <div class="config-group">
+                <label>Eliminar fondo transparente</label>
+                <input type="checkbox" id="removeTransparentToggle" checked style="margin-top:5px;">
+                <div style="font-size:9px;color:#90a8d8;margin-top:2px;">Activa para eliminar fondos transparentes de imágenes PNG</div>
+            </div>
+            <div class="config-group">
+                <label>Umbral de transparencia <span class="config-value" id="transparencyThresholdValue">0.1</span></label>
+                <input type="range" class="config-slider" id="transparencyThresholdSlider" min="0.0" max="0.5" step="0.01" value="0.1">
+                <div style="font-size:9px;color:#90a8d8;margin-top:2px;">0.0=Transparente total, 0.5=Casi opaco</div>
+            </div>
+            <div class="config-group">
+                <label>Eliminar fondo blanco/negro</label>
+                <input type="checkbox" id="removeSolidBackgroundToggle" style="margin-top:5px;">
+                <div style="font-size:9px;color:#90a8d8;margin-top:2px;">Activa para eliminar fondos blancos o negros sólidos</div>
+            </div>
+            <div class="config-group">
+                <label>Umbral de color <span class="config-value" id="colorThresholdValue">20</span></label>
+                <input type="range" class="config-slider" id="colorThresholdSlider" min="5" max="50" step="1" value="20">
+                <div style="font-size:9px;color:#90a8d8;margin-top:2px;">5=Estricto, 50=Flexible</div>
+            </div>
+            <div class="config-group">
+                <label>Tipo de fondo a eliminar</label>
+                <div class="select-container">
+                    <select class="config-select" id="backgroundTypeToRemoveSelect">
+                        <option value="transparent">Transparente</option>
+                        <option value="white">Blanco</option>
+                        <option value="black">Negro</option>
+                        <option value="both">Blanco y Negro</option>
+                    </select>
+                    <div class="select-arrow">▼</div>
+                </div>
+                <div class="arrow-nav">
+                    <button class="arrow-btn" data-target="backgroundTypeToRemoveSelect" data-direction="prev">◀</button>
+                    <button class="arrow-btn" data-target="backgroundTypeToRemoveSelect" data-direction="next">▶</button>
+                </div>
+            </div>
+            <div class="config-group">
+                <button class="control-btn" style="width:100%;" id="applyTransparencyBtn">APLICAR A IMAGEN ACTUAL</button>
+            </div>
+            <div class="config-group">
+                <label>Vista previa</label>
+                <div class="transparent-preview" id="transparentPreview">
+                    <div style="position:absolute; width:80%; height:40%; background:rgba(30,30,60,0.8); margin:auto; display:flex; align-items:center; justify-content:center;">
+                        <span id="transparentPreviewText">MUESTRA</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="backgroundTab">
+            <div class="config-group">
+                <label>Tipo de fondo</label>
+                <div class="select-container">
+                    <select class="config-select" id="backgroundTypeSelect">
+                        <option value="matrix">Lluvia Matrix</option>
+                        <option value="static">Estático</option>
+                        <option value="scan">Escaneo vertical</option>
+                        <option value="grid">Cuadrícula</option>
+                        <option value="dots">Puntos</option>
+                        <option value="noise">Ruido</option>
+                        <option value="raining">Cayendo</option>
+                        <option value="custom">Fondo personalizado (GIF)</option>
+                    </select>
+                    <div class="select-arrow">▼</div>
+                </div>
+                <div class="arrow-nav">
+                    <button class="arrow-btn" data-target="backgroundTypeSelect" data-direction="prev">◀</button>
+                    <button class="arrow-btn" data-target="backgroundTypeSelect" data-direction="next">▶</button>
+                </div>
+            </div>
+            <div class="config-group">
+                <label>Tamaño caracteres <span class="config-value" id="backgroundCharSizeValue">12</span></label>
+                <input type="range" class="config-slider" id="backgroundCharSizeSlider" min="4" max="24" step="1" value="12">
+                <div style="font-size:9px;color:#90a8d8;margin-top:2px;">4=Mínimo, 24=Máximo</div>
+            </div>
+            <div class="config-group">
+                <label>Intensidad fondo <span class="config-value" id="backgroundIntensityValue">8</span></label>
+                <input type="range" class="config-slider" id="backgroundIntensitySlider" min="1" max="15" step="1" value="8">
+                <div style="font-size:9px;color:#90a8d8;margin-top:2px;">1=Mínima, 15=Máxima</div>
+            </div>
+            <div class="config-group">
+                <label>Brillo fondo ASCII <span class="config-value" id="backgroundBrightnessValue">0.6</span></label>
+                <input type="range" class="config-slider" id="backgroundBrightnessSlider" min="0.1" max="1.0" step="0.1" value="0.6">
+                <div style="font-size:9px;color:#90a8d8;margin-top:2px;">0.1=Oscuro, 1.0=Brillante</div>
+            </div>
+            <div class="config-group">
+                <label>Brillo fondo GIF <span class="config-value" id="gifBrightnessValue">1.0</span></label>
+                <input type="range" class="config-slider" id="gifBrightnessSlider" min="0.1" max="1.0" step="0.1" value="1.0">
+                <div style="font-size:9px;color:#90a8d8;margin-top:2px;">0.1=Oscuro, 1.0=Original</div>
+            </div>
+            <div class="config-group">
+                <label>Velocidad animación <span class="config-value" id="backgroundSpeedValue">1.2</span></label>
+                <input type="range" class="config-slider" id="backgroundSpeedSlider" min="0.1" max="3.0" step="0.1" value="1.2">
+                <div style="font-size:9px;color:#90a8d8;margin-top:2px;">0.1=Lento, 3.0=Rápido</div>
+            </div>
+            <div class="config-group">
+                <label>Color fondo</label>
+                <div class="select-container">
+                    <select class="config-select" id="backgroundColorSelect">
+                        <option value="matrix">Verde Matrix</option>
+                        <option value="blue">Azul Cyber</option>
+                        <option value="red">Rojo Sangre</option>
+                        <option value="purple">Púrpura Digital</option>
+                        <option value="cyan">Cian Neón</option>
+                        <option value="amber">Ámbar Vintage</option>
+                        <option value="random">Aleatorio</option>
+                    </select>
+                    <div class="select-arrow">▼</div>
+                </div>
+                <span class="color-preview" id="bgColorPreview"></span>
+                <div class="arrow-nav">
+                    <button class="arrow-btn" data-target="backgroundColorSelect" data-direction="prev">◀</button>
+                    <button class="arrow-btn" data-target="backgroundColorSelect" data-direction="next">▶</button>
+                </div>
+            </div>
+            <div class="config-group">
+                <label>Llenar fondo con código</label>
+                <input type="checkbox" id="fillBackgroundToggle" checked style="margin-top:5px;">
+                <div style="font-size:9px;color:#90a8d8;margin-top:2px;">Rellena toda el área con caracteres ASCII</div>
+            </div>
+            <div class="config-group">
+                <button class="control-btn" style="width:100%;" id="clearBackgroundBtn">LIMPIAR FONDO PERSONALIZADO</button>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="glitchTab">
+            <div class="config-group">
+                <label>Intensidad glitch <span class="config-value" id="imageGlitchValue">0</span></label>
+                <input type="range" class="config-slider" id="imageGlitchSlider" min="0" max="10" step="1" value="0">
+                <div style="font-size:9px;color:#90a8d8;margin-top:2px;">0=Ninguno, 10=Máximo</div>
+            </div>
+            <div class="config-group">
+                <label>Distorsión RGB <span class="config-value" id="rgbDistortionValue">0</span></label>
+                <input type="range" class="config-slider" id="rgbDistortionSlider" min="0" max="10" step="1" value="0">
+                <div style="font-size:9px;color:#90a8d8;margin-top:2px;">Separación de canales de color</div>
+            </div>
+            <div class="config-group">
+                <label>Frecuencia glitch <span class="config-value" id="glitchFrequencyValue">0.5</span></label>
+                <input type="range" class="config-slider" id="glitchFrequencySlider" min="0.1" max="2.0" step="0.1" value="0.5">
+                <div style="font-size:9px;color:#90a8d8;margin-top:2px;">0.1=Raro, 2.0=Frecuente</div>
+            </div>
+            <div class="config-group">
+                <label>Tipo de glitch</label>
+                <div class="select-container">
+                    <select class="config-select" id="glitchTypeSelect">
+                        <option value="static">Estático</option>
+                        <option value="scanline">Líneas de escaneo</option>
+                        <option value="datamosh">Datamosh</option>
+                        <option value="vhs">VHS</option>
+                        <option value="analog">Analógico</option>
+                        <option value="digital">Digital</option>
+                        <option value="data">Corrupción de datos</option>
+                        <option value="pixel">Pixelación extrema</option>
+                        <option value="offset">Desplazamiento</option>
+                        <option value="noise">Ruido digital</option>
+                        <option value="tv">TV estático</option>
+                        <option value="warp">Deformación</option>
+                        <option value="jitter">Temblor</option>
+                        <option value="slit">Deslizamiento</option>
+                        <option value="glitchcore">Glitchcore</option>
+                    </select>
+                    <div class="select-arrow">▼</div>
+                </div>
+                <div class="arrow-nav">
+                    <button class="arrow-btn" data-target="glitchTypeSelect" data-direction="prev">◀</button>
+                    <button class="arrow-btn" data-target="glitchTypeSelect" data-direction="next">▶</button>
+                </div>
+            </div>
+            <div class="config-group">
+                <label>Sintaxis de colores</label>
+                <div class="select-container">
+                    <select class="config-select" id="syntaxColorSelect">
+                        <option value="none">Ninguno</option>
+                        <option value="rainbow">Arcoíris</option>
+                        <option value="syntax">Sintaxis de código</option>
+                        <option value="binary">Binario (0=rojo, 1=verde)</option>
+                        <option value="gradient">Degradado</option>
+                        <option value="hue_shift">Cambio de tono</option>
+                        <option value="pulse">Pulso</option>
+                        <option value="fire">Fuego</option>
+                        <option value="ice">Hielo</option>
+                        <option value="toxic">Tóxico</option>
+                        <option value="neon">Neón</option>
+                        <option value="cyberpunk">Cyberpunk</option>
+                        <option value="vaporwave">Vaporwave</option>
+                        <option value="synthwave">Synthwave</option>
+                        <option value="outrun">Outrun</option>
+                        <option value="retro">Retro</option>
+                        <option value="holographic">Holográfico</option>
+                        <option value="dataflow">Flujo de datos</option>
+                    </select>
+                    <div class="select-arrow">▼</div>
+                </div>
+                <div class="arrow-nav">
+                    <button class="arrow-btn" data-target="syntaxColorSelect" data-direction="prev">◀</button>
+                    <button class="arrow-btn" data-target="syntaxColorSelect" data-direction="next">▶</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Botones de guardar/cargar configuración -->
+        <div class="config-buttons">
+            <button class="config-save-btn" id="saveConfigBtn">GUARDAR CONFIG</button>
+            <button class="config-load-btn" id="loadConfigBtn">CARGAR CONFIG</button>
+        </div>
+    </div>
+    
+    <input type="file" id="fileInput" accept="image/*">
+    <input type="file" id="audioFileInput" accept="audio/*">
+    <input type="file" id="backgroundFileInput" accept="image/gif,.gif,image/*">
+    
+    <div class="loading" id="loadingIndicator">CARGANDO...</div>
+
+    <script>
+        // Canvas setup
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = false;
+        
+        // Elementos para el fondo
+        const gifBackground = document.getElementById('gifBackground');
+        const brightnessOverlay = document.getElementById('brightnessOverlay');
+        
+        // Set canvas size
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            canvas.style.top = '0';
+            
+            // Ajustar también el GIF de fondo
+            if (gifBackground.style.display === 'block') {
+                gifBackground.style.width = '100%';
+                gifBackground.style.height = '100%';
+            }
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        // Sistema de diálogos personalizados
+        const dialogOverlay = document.getElementById('dialogOverlay');
+        const dialogTitle = document.getElementById('dialogTitle');
+        const dialogMessage = document.getElementById('dialogMessage');
+        const dialogConfirm = document.getElementById('dialogConfirm');
+        const dialogCancel = document.getElementById('dialogCancel');
+        
+        let dialogResolve;
+        
+        function showDialog(title, message, showCancel = false) {
+            return new Promise((resolve) => {
+                dialogTitle.textContent = title;
+                dialogMessage.textContent = message;
+                dialogCancel.style.display = showCancel ? 'block' : 'none';
+                dialogOverlay.style.display = 'flex';
+                
+                dialogResolve = resolve;
+            });
+        }
+        
+        dialogConfirm.addEventListener('click', () => {
+            dialogOverlay.style.display = 'none';
+            if (dialogResolve) dialogResolve(true);
+        });
+        
+        dialogCancel.addEventListener('click', () => {
+            dialogOverlay.style.display = 'none';
+            if (dialogResolve) dialogResolve(false);
+        });
+        
+        // App state
+        let faceImage = null;
+        let originalFaceImage = null; // Guardar la imagen original
+        let endImage = null; // Imagen para cuando termine el audio
+        let asciiData = null;
+        let audioContext = null;
+        let analyser = null;
+        let audioSource = null;
+        let audioElement = null;
+        let soundLevel = 0;
+        let lastSoundLevel = 0;
+        let audioActive = false;
+        let audioPlaying = false;
+        let controlsVisible = false;
+        let configVisible = false;
+        let lastRenderTime = 0;
+        let lastAudioUpdate = 0;
+        let backgroundChars = [];
+        let lastBackgroundUpdate = 0;
+        let isEndImageActive = false; // Nueva variable para controlar si estamos en imagen final
+        
+        // Configuration
+        let config = {
+            mouthLatency: 5,
+            density: 3.0,
+            intensity: 1.0,
+            charSet: 'binary',
+            brightness: 0.6,
+            contrast: 1.5,
+            colorScheme: 'matrix',
+            sensitivity: 6,
+            mouthPosition: {
+                x: 0.5,
+                y: 0.7,
+                width: 0.20,
+                height: 0.12
+            },
+            mouthGlow: 0,
+            mouthAnimation: 'natural',
+            mouthControl: 50,
+            audioReactivity: 10,
+            smoothing: 0.1,
+            noiseFilter: 0.01,
+            audioLatency: 10,
+            audioInput: 'file',
+            audioMode: 'realtime',
+            removeTransparent: true,
+            transparencyThreshold: 0.1,
+            removeSolidBackground: false,
+            colorThreshold: 20,
+            backgroundTypeToRemove: 'transparent',
+            backgroundType: 'matrix',
+            backgroundCharSize: 12,
+            backgroundIntensity: 8,
+            backgroundBrightness: 0.6,
+            gifBrightness: 1.0,
+            backgroundSpeed: 1.2,
+            backgroundColor: 'matrix',
+            fillBackground: true,
+            imageGlitch: 0,
+            rgbDistortion: 0,
+            glitchFrequency: 0.5,
+            glitchType: 'static',
+            syntaxColor: 'none',
+            loopAudio: false
+        };
+        
+        // Character sets - EXPANDIDO con muchos más conjuntos
+        const charSets = {
+            binary: ['0', '1'],
+            code: ['@', '#', '$', '%', '&', '*', '+', '=', '>', '<', '?', '!', ';', ':', '/', '\\', '|', '~', '^', '_'],
+            alphanum: ['.', ':', '-', '=', '+', '*', '#', '@', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'],
+            blocks: ['▀', '▄', '▌', '▐'],
+            custom: ['#', '$', '%', '@', '&', '*', '+', '='],
+            custom2: ['◢', '◣', '◤', '◥', '◣', '◢', '▀', '▄'],
+            matrix: ['ｱ', 'ｲ', 'ｳ', 'ｴ', 'ｵ', 'ｶ', 'ｷ', 'ｸ', 'ｹ', 'ｺ', 'ｻ', 'ｼ', 'ｽ', 'ｾ', 'ｿ', 'ﾀ', 'ﾁ', 'ﾂ', 'ﾃ', 'ﾄ'],
+            arrows: ['←', '↑', '→', '↓', '↔', '↕', '↖', '↗', '↘', '↙'],
+            math: ['+', '-', '×', '÷', '=', '≈', '≠', '≤', '≥', '±', '√', '∞', '∂', '∑', '∏', '∇', '∫'],
+            greek: ['α', 'β', 'γ', 'δ', 'ε', 'ζ', 'η', 'θ', 'ι', 'κ', 'λ', 'μ', 'ν', 'ξ', 'ο', 'π', 'ρ', 'σ', 'τ', 'υ', 'φ', 'χ', 'ψ', 'ω'],
+            circles: ['◔', '◕', '◑', '◐', '◒', '◓', '◑', '◍', '◉', '◎', '●', '○', '◌', '◍', '◎'],
+            squares: ['▀', '▄', '▅', '▃', '▇', '▆', '█', '▊', '▋', '▌', '▍', '▎', '▏', '▐', '░', '▒'],
+            lines: ['─', '━', '│', '┃', '┄', '┅', '┆', '┇', '┈', '┉', '┊', '┋', '┌', '┍', '┎', '┏', '┐', '┑', '┒', '┓', '└', '┕', '┖', '┗', '┘', '┙', '┚', '┛', '├', '┝', '┞', '┟', '┠', '┡', '┢', '┣', '┤', '┥', '┦', '┧', '┨', '┩', '┪', '┫', '┬', '┭', '┮', '┯', '┰', '┱', '┲', '┳'],
+            shading: ['█', '▓', '▒', '░', '▚', '▞', '▙', '▟', '▄'],
+            braille: ['⠀', '⠇', '⠋', '⠛', '⡀', '⡇', '⡋', '⡛', '⣀', '⣇', '⣋', '⣛', '⠁', '⠈', '⠉', '⠊'],
+            misc: ['⏏', '⏬', '⏯', '⏾', '↨', '⏺', '⏻', '⏼', '⏽', '⎈', '⎔', '⎖', '⏼', '⏻', '⏭', '⏮', '⏩', '⏪', '⏫', '⏬', '⏸', '⏹', '⏺', '⏻', '⏼', '⏽', '⎈', '⎔', '⎖'],
+            emoji: ['🌐', '🔰', '👽', '🤖', '👾', '🤖', '🎵', '👾', '🌡️', '🌧️', '🌪️', '🌩️', '🌈', '☀️', '❄️', '🔥'],
+            currency: ['€', '£', '•', '$', '¥', '₽', '₺', '₽', '©', '®', '™', '℗'],
+            chess: ['♔', '♕', '♖', '♗', '♘', '♙', '♚', '♛', '♜', '♝', '♞', '♟'],
+            music: ['♩', '♪', '♫', '♬', '♭', '♮', '♯', '🎵', '🎶', '🎼'],
+            weather: ['🌡️', '🌧️', '🌪️', '🌩️', '🌈', '☀️', '❄️', '🔥', '🌀', '🌊', '☁️'],
+            zodiac: ['♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓'],
+            cards: ['🂡', '🂱', '🂮', '🃁', '🂢', '🂲', '🂯', '🃂', '🂣', '🂳', '🂰', '🃃', '🂤', '🂴', '🂡', '🂱', '🂮', '🃁'],
+            technical: ['⏏', '⏬', '⏯', '⏾', '↨', '⏺', '⏻', '⏼', '⏽', '⎈', '⎔', '⎖', '⏼', '⏻', '⏭', '⏮', '⏩', '⏪', '⏫', '⏬', '⏸', '⏹', '⏺'],
+            hearts: ['♥', '❤', '💔', '💖', '💗', '💘', '💙', '💚', '💛', '💜', '🖤', '💝', '💞', '💟', '❣'],
+            stars: ['⭐', '🌟', '⭑', '⛤', '⛧', '⛥', '⛦', '⛨', '⛩', '⛪', '⛫', '⛬', '⛭', '★', '☆', '✪', '✦'],
+            runes: ['ᚠ', 'ᚢ', 'ᚦ', 'ᚨ', 'ᚱ', 'ᚲ', 'ᚷ', 'ᚹ', 'ᚺ', 'ᚾ', 'ᛁ', 'ᛃ', 'ᛇ', 'ᛈ', 'ᛉ', 'ᛋ', 'ᛏ', 'ᛒ', 'ᛖ', 'ᛗ', 'ᛚ', 'ᛜ', 'ᛝ', 'ᛟ', 'ᛞ'],
+            cyrillic: ['А', 'Б', 'В', 'Г', 'Д', 'Е', 'Ё', 'Ж', 'З', 'И', 'Й', 'К', 'Л', 'М', 'Н', 'О', 'П', 'Р', 'С', 'Т', 'У', 'Ф', 'Х', 'Ц', 'Ч', 'Ш', 'Щ', 'Ъ', 'Ы', 'Ь', 'Э', 'Ю', 'Я'],
+            arabic: ['ا', 'ب', 'ت', 'ث', 'ج', 'ح', 'خ', 'د', 'ذ', 'ر', 'ز', 'س', 'ش', 'ص', 'ض', 'ط', 'ظ', 'ع', 'غ', 'ف', 'ق', 'ك', 'ل', 'م', 'ن', 'ه', 'و', 'ي'],
+            hebrew: ['א', 'בּ', 'ב', 'גּ', 'ג', 'דּ', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט', 'י', 'כּ', 'כ', 'ל', 'מ', 'נ', 'ס', 'ע', 'פּ', 'פ', 'צ', 'ק', 'ר', 'ש', 'ת'],
+            dingbats: ['➀', '➁', '➂', '➃', '➄', '➅', '➆', '➇', '➈', '➉', '➊', '➋', '➌', '➍', '➎', '➏', '➐', '➑', '➒', '➓', '➔', '➕', '➖', '➗', '➘', '➙', '➚', '➛', '➜', '➝', '➞', '➟', '➠', '➡', '➢', '➣', '➤', '➥', '➦', '➧', '➨', '➩', '➪', '➫', '➬', '➭', '➮', '➯', '➰', '➱', '➲', '➳', '➴', '➵', '➶', '➷', '➸', '➹', '➺', '➻', '➼', '➽', '➾', '⟀', '⟁', '⟂', '⟃', '⟄', '⟅', '⟆', '⟇', '⟈', '⟉', '⟊', '⟋', '⟌', '⟍', '⟎', '⟏', '⟐', '⟑', '⟒', '⟓', '⟔', '⟕', '⟖', '⟗', '⟘', '⟙', '⟚', '⟛', '⟜', '⟝']
+        };
+        
+        // Color schemes
+        const colorSchemes = {
+            matrix: { hue: 120, saturation: 100, lightness: 70 },
+            blue: { hue: 210, saturation: 100, lightness: 70 },
+            red: { hue: 0, saturation: 100, lightness: 70 },
+            amber: { hue: 40, saturation: 80, lightness: 70 },
+            rainbow: { hue: 0, saturation: 100, lightness: 70, rainbow: true }
+        };
+        
+        // Background color schemes
+        const backgroundColorSchemes = {
+            matrix: { hue: 120, saturation: 100, lightness: 50 },
+            blue: { hue: 210, saturation: 100, lightness: 50 },
+            red: { hue: 0, saturation: 100, lightness: 50 },
+            purple: { hue: 270, saturation: 100, lightness: 50 },
+            cyan: { hue: 180, saturation: 100, lightness: 50 },
+            amber: { hue: 40, saturation: 80, lightness: 50 },
+            random: { random: true }
+        };
+        
+        // Syntax color schemes
+        const syntaxColorSchemes = {
+            rainbow: (x, y, time) => {
+                return (x * 10 + y * 5 + time * 0.01) % 360;
+            },
+            syntax: (x, y) => {
+                const patterns = [
+                    210,
+                    160,
+                    270,
+                    330,
+                    60
+                ];
+                return patterns[Math.floor((x + y) % patterns.length)];
+            },
+            binary: (char) => {
+                return char === '0' ? 0 : 120;
+            },
+            gradient: (x, y, width, height) => {
+                return (x / width) * 360;
+            },
+            hue_shift: (time) => {
+                return (time * 0.001) % 360;
+            },
+            pulse: (time, x, y) => {
+                return (((x + y) * 0.1 + time * 0.002) % 360 + 180) % 360;
+            },
+            fire: (x, y, time) => {
+                return (Math.sin(x * 0.1 + time * 0.005) * 20 + 40) % 360;
+            },
+            ice: (x, y, time) => {
+                return (Math.cos(y * 0.1 + time * 0.003) * 20 + 200) % 360;
+            },
+            toxic: (x, y, time) => {
+                return (x * 5 + y * 3 + time * 0.002) % 100 + 120;
+            },
+            neon: (x, y, time) => {
+                return (Math.sin(x * 0.05 + time * 0.003) * 60 + 300) % 360;
+            },
+            cyberpunk: (x, y, time) => {
+                return (Math.cos(x * 0.03) * 40 + Math.sin(y * 0.03) * 40 + time * 0.001) % 360;
+            },
+            vaporwave: (x, y, time) => {
+                return (Math.sin(x * 0.02 + y * 0.02 + time * 0.001) * 60 + 300) % 360;
+            },
+            synthwave: (x, y, time) => {
+                return (Math.cos(x * 0.03 + time * 0.002) * 30 + 330) % 360;
+            },
+            outrun: (x, y, time) => {
+                return (Math.sin(y * 0.01 + time * 0.001) * 60 + 240) % 360;
+            },
+            retro: (x, y, time) => {
+                return ((x * 3 + y * 2 + time * 0.0005) % 60) + 30;
+            },
+            holographic: (x, y, time) => {
+                return (Math.sin(x * 0.05) * 60 + Math.cos(y * 0.05) * 60 + time * 0.002) % 360;
+            },
+            dataflow: (x, y, time) => {
+                return (Math.sin(x * 0.1 + time * 0.001) * 40 + Math.cos(y * 0.1 + time * 0.001) * 40 + 180) % 360;
+            }
+        };
+        
+        // Background animations
+        const backgroundAnimations = {
+            matrix: (ctx, width, height, time, intensity, brightness, speed) => {
+                const now = Date.now();
+                if (now - lastBackgroundUpdate > 50 / speed) {
+                    backgroundChars.forEach(char => {
+                        char.y += char.speed * intensity * speed;
+                        
+                        if (char.y > height) {
+                            char.y = -10;
+                            char.x = Math.random() * width;
+                            const charSet = charSets[config.charSet] || charSets.binary;
+                            char.char = charSet[Math.floor(Math.random() * charSet.length)];
+                            char.speed = 0.5 + Math.random() * 2.5;
+                            char.opacity = 0.2 + Math.random() * 0.5;
+                        }
+                    });
+                    lastBackgroundUpdate = now;
+                }
+                
+                backgroundChars.forEach(char => {
+                    let charHue = backgroundColorSchemes[config.backgroundColor].hue;
+                    if (config.backgroundColor === 'random') {
+                        charHue = Math.random() * 360;
+                    }
+                    
+                    ctx.fillStyle = `hsla(${charHue}, 100%, 50%, ${char.opacity * intensity * brightness})`;
+                    ctx.font = `${config.backgroundCharSize}px monospace`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(char.char, char.x, char.y);
+                });
+            },
+            static: (ctx, width, height, time, intensity, brightness) => {
+                const noiseSize = 3;
+                const cols = Math.floor(width / noiseSize);
+                const rows = Math.floor(height / noiseSize);
+                
+                for (let i = 0; i < cols; i++) {
+                    for (let j = 0; j < rows; j++) {
+                        const x = i * noiseSize;
+                        const y = j * noiseSize;
+                        const noiseValue = Math.sin(i * 0.1 + j * 0.1 + time * 0.0003) * 0.5 + 0.5;
+                        
+                        if (Math.random() < noiseValue * intensity * 0.2) {
+                            let charHue = backgroundColorSchemes[config.backgroundColor].hue;
+                            if (config.backgroundColor === 'random') {
+                                charHue = (i * 10 + j * 5) % 360;
+                            }
+                            
+                            ctx.fillStyle = `hsla(${charHue}, 100%, 50%, ${0.3 * intensity * brightness})`;
+                            ctx.fillRect(x, y, noiseSize, noiseSize);
+                        }
+                    }
+                }
+            },
+            scan: (ctx, width, height, time, intensity, brightness, speed) => {
+                const scanLines = Math.floor(height / 8);
+                const scanOffset = (Math.sin(time * 0.002 * speed) * 0.5 + 0.5) * height;
+                
+                for (let i = 0; i < scanLines; i++) {
+                    const y = (i * height / scanLines + scanOffset) % height;
+                    const opacity = 0.3 + Math.sin(i * 0.5 + time * 0.002 * speed) * 0.4;
+                    
+                    let charHue = backgroundColorSchemes[config.backgroundColor].hue;
+                    if (config.backgroundColor === 'random') {
+                        charHue = (i * 5) % 360;
+                    }
+                    
+                    ctx.fillStyle = `hsla(${charHue}, 100%, 50%, ${opacity * intensity * brightness * 0.7})`;
+                    ctx.fillRect(0, y, width, 1);
+                }
+            },
+            grid: (ctx, width, height, time, intensity, brightness, speed) => {
+                const gridSize = 15;
+                const cols = Math.floor(width / gridSize);
+                const rows = Math.floor(height / gridSize);
+                
+                ctx.strokeStyle = `rgba(100, 200, 150, ${0.1 * intensity * brightness})`;
+                ctx.lineWidth = 1;
+                
+                for (let i = 0; i <= cols; i++) {
+                    const x = i * gridSize + Math.sin(i * 0.1 + time * 0.001 * speed) * 2;
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, height);
+                    ctx.stroke();
+                }
+                
+                for (let j = 0; j <= rows; j++) {
+                    const y = j * gridSize + Math.cos(j * 0.1 + time * 0.001 * speed) * 2;
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(width, y);
+                    ctx.stroke();
+                }
+            },
+            dots: (ctx, width, height, time, intensity, brightness, speed) => {
+                const dotSize = 3;
+                const dotCols = Math.floor(width / (dotSize * 4));
+                const dotRows = Math.floor(height / (dotSize * 4));
+                
+                for (let i = 0; i < dotCols; i++) {
+                    for (let j = 0; j < dotRows; j++) {
+                        const x = i * dotSize * 4 + dotSize * 2;
+                        const y = j * dotSize * 4 + dotSize * 2;
+                        const pulse = Math.sin((i + j) * 0.1 + time * 0.002 * speed) * 0.5 + 0.5;
+                        
+                        let charHue = backgroundColorSchemes[config.backgroundColor].hue;
+                        if (config.backgroundColor === 'random') {
+                            charHue = (i * 15 + j * 10) % 360;
+                        }
+                        
+                        ctx.fillStyle = `hsla(${charHue}, 100%, 60%, ${0.4 * pulse * intensity * brightness})`;
+                        ctx.beginPath();
+                        ctx.arc(x, y, dotSize * pulse, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+            },
+            noise: (ctx, width, height, time, intensity, brightness, speed) => {
+                const noiseCols = Math.floor(width / 6);
+                const noiseRows = Math.floor(height / 6);
+                
+                for (let i = 0; i < noiseCols; i++) {
+                    for (let j = 0; j < noiseRows; j++) {
+                        const x = i * 6 + 3;
+                        const y = j * 6 + 3;
+                        const noiseValue = Math.sin(i * 0.5 + j * 0.5 + time * 0.003 * speed) * 0.5 + 0.5;
+                        
+                        if (Math.random() < noiseValue * intensity * 0.2) {
+                            let charHue = backgroundColorSchemes[config.backgroundColor].hue;
+                            if (config.backgroundColor === 'random') {
+                                charHue = Math.random() * 360;
+                            }
+                            
+                            ctx.fillStyle = `hsla(${charHue}, 70%, 45%, ${0.2 * noiseValue * intensity * brightness})`;
+                            ctx.beginPath();
+                            ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                    }
+                }
+            },
+            raining: (ctx, width, height, time, intensity, brightness, speed) => {
+                const rainDrops = Math.floor(width / 10) * 2;
+                
+                for (let i = 0; i < rainDrops; i++) {
+                    const x = (Math.sin(i * 0.3 + time * 0.001 * speed) * 0.5 + 0.5) * width;
+                    const y = (i * height / rainDrops + time * 0.03 * speed) % height;
+                    const charSet = charSets[config.charSet] || charSets.binary;
+                    const char = charSet[Math.floor(Math.random() * charSet.length)];
+                    const size = config.backgroundCharSize;
+                    const opacity = 0.3 + Math.random() * 0.4;
+                    
+                    let charHue = backgroundColorSchemes[config.backgroundColor].hue;
+                    if (config.backgroundColor === 'random') {
+                        charHue = (i * 10) % 360;
+                    }
+                    
+                    ctx.fillStyle = `hsla(${charHue}, 100%, 60%, ${opacity * intensity * brightness})`;
+                    ctx.font = `bold ${size}px monospace`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(char, x, y);
+                }
+            }
+        };
+        
+        // Initialize
+        function init() {
+            document.getElementById('mainControl').addEventListener('click', toggleControls);
+            document.getElementById('loadImageButton').addEventListener('click', () => {
+                document.getElementById('fileInput').click();
+            });
+            document.getElementById('loadAudioButton').addEventListener('click', loadAudio);
+            document.getElementById('loadBackgroundButton').addEventListener('click', () => {
+                document.getElementById('backgroundFileInput').click();
+            });
+            document.getElementById('playButton').addEventListener('click', playAudio);
+            document.getElementById('pauseButton').addEventListener('click', pauseAudio);
+            document.getElementById('stopButton').addEventListener('click', stopAudio);
+            document.getElementById('loadEndImageButton').addEventListener('click', () => {
+                document.getElementById('endImageFileInput').click();
+            });
+            document.getElementById('configButton').addEventListener('click', toggleConfig);
+            document.getElementById('closeConfigPanel').addEventListener('click', toggleConfig);
+            document.getElementById('fileInput').addEventListener('change', loadImage);
+            document.getElementById('endImageFileInput').addEventListener('change', loadEndImage);
+            document.getElementById('audioFileInput').addEventListener('change', handleAudioFile);
+            document.getElementById('backgroundFileInput').addEventListener('change', loadBackgroundImage);
+            document.getElementById('applyTransparencyBtn').addEventListener('click', applyTransparencySettings);
+            document.getElementById('clearBackgroundBtn').addEventListener('click', clearBackground);
+            
+            // Botones de guardar/cargar configuración
+            document.getElementById('saveConfigBtn').addEventListener('click', saveConfig);
+            document.getElementById('loadConfigBtn').addEventListener('click', loadConfig);
+            
+            setupConfigControls();
+            updateColorPreviews();
+            updateTransparentPreview();
+            
+            // Cargar configuración guardada al iniciar
+            loadConfig(true);
+            
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    btn.classList.add('active');
+                    document.getElementById(`${btn.dataset.tab}Tab`).classList.add('active');
+                });
+            });
+            
+            // Agregar eventos para flechas de navegación en selects
+            document.querySelectorAll('.arrow-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const targetId = btn.dataset.target;
+                    const direction = btn.dataset.direction;
+                    const select = document.getElementById(targetId);
+                    if (!select) return;
+                    
+                    const currentIndex = select.selectedIndex;
+                    let newIndex;
+                    
+                    if (direction === 'next') {
+                        newIndex = (currentIndex + 1) % select.options.length;
+                    } else {
+                        newIndex = (currentIndex - 1 + select.options.length) % select.options.length;
+                    }
+                    
+                    select.selectedIndex = newIndex;
+                    select.dispatchEvent(new Event('change'));
+                });
+            });
+            
+            loadDefaultFace();
+            requestAnimationFrame(animate);
+            initBackgroundChars();
+        }
+        
+        // Guardar configuración
+        function saveConfig() {
+            try {
+                localStorage.setItem('asciiAudioFaceConfig', JSON.stringify(config));
+                showDialog('Configuración Guardada', 'La configuración ha sido guardada exitosamente.', false);
+            } catch (e) {
+                showDialog('Error', 'No se pudo guardar la configuración: ' + e.message, false);
+            }
+        }
+        
+        // Cargar configuración
+        function loadConfig(silent = false) {
+            try {
+                const savedConfig = localStorage.getItem('asciiAudioFaceConfig');
+                if (savedConfig) {
+                    const parsedConfig = JSON.parse(savedConfig);
+                    
+                    // Actualizar solo las propiedades que existen en la configuración actual
+                    Object.keys(parsedConfig).forEach(key => {
+                        if (config.hasOwnProperty(key)) {
+                            if (key === 'mouthPosition' && parsedConfig[key]) {
+                                // Actualizar posición de boca
+                                config.mouthPosition = {
+                                    ...config.mouthPosition,
+                                    ...parsedConfig[key]
+                                };
+                            } else {
+                                config[key] = parsedConfig[key];
+                            }
+                        }
+                    });
+                    
+                    // Actualizar UI
+                    setupConfigControls();
+                    updateConfig();
+                    
+                    if (!silent) {
+                        showDialog('Configuración Cargada', 'La configuración ha sido cargada exitosamente.', false);
+                    }
+                } else if (!silent) {
+                    showDialog('Sin Configuración', 'No hay configuración guardada.', false);
+                }
+            } catch (e) {
+                if (!silent) {
+                    showDialog('Error', 'No se pudo cargar la configuración: ' + e.message, false);
+                }
+            }
+        }
+        
+        // Initialize background characters for animation
+        function initBackgroundChars() {
+            backgroundChars = [];
+            const charCount = Math.floor(canvas.width / 12) * Math.floor(canvas.height / 12);
+            const charSet = charSets[config.charSet] || charSets.binary;
+            
+            for (let i = 0; i < charCount; i++) {
+                backgroundChars.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    char: charSet[Math.floor(Math.random() * charSet.length)],
+                    speed: 0.5 + Math.random() * 2.5,
+                    opacity: 0.2 + Math.random() * 0.5
+                });
+            }
+        }
+        
+        // Setup configuration controls
+        function setupConfigControls() {
+            document.getElementById('mouthLatencySlider').value = config.mouthLatency;
+            document.getElementById('mouthLatencyValue').textContent = config.mouthLatency;
+            document.getElementById('sensitivitySlider').value = config.sensitivity;
+            document.getElementById('sensitivityValue').textContent = config.sensitivity;
+            document.getElementById('mouthGlowSlider').value = config.mouthGlow;
+            document.getElementById('mouthGlowValue').textContent = config.mouthGlow;
+            document.getElementById('mouthAnimationSelect').value = config.mouthAnimation;
+            document.getElementById('mouthControlSlider').value = config.mouthControl;
+            document.getElementById('mouthControlValue').textContent = config.mouthControl;
+            document.getElementById('audioReactivitySlider').value = config.audioReactivity;
+            document.getElementById('audioReactivityValue').textContent = config.audioReactivity;
+            document.getElementById('smoothingSlider').value = config.smoothing;
+            document.getElementById('smoothingValue').textContent = config.smoothing;
+            document.getElementById('audioLatencySlider').value = config.audioLatency;
+            document.getElementById('audioLatencyValue').textContent = config.audioLatency;
+            document.getElementById('noiseFilterSlider').value = config.noiseFilter;
+            document.getElementById('noiseFilterValue').textContent = config.noiseFilter;
+            document.getElementById('audioInputSelect').value = config.audioInput;
+            document.getElementById('audioModeSelect').value = config.audioMode;
+            document.getElementById('loopAudioToggle').checked = config.loopAudio;
+            document.getElementById('densitySlider').value = config.density;
+            document.getElementById('densityValue').textContent = config.density;
+            document.getElementById('intensitySlider').value = config.intensity;
+            document.getElementById('intensityValue').textContent = config.intensity;
+            document.getElementById('charSetSelect').value = config.charSet;
+            document.getElementById('brightnessSlider').value = config.brightness;
+            document.getElementById('brightnessValue').textContent = config.brightness;
+            document.getElementById('contrastSlider').value = config.contrast;
+            document.getElementById('contrastValue').textContent = config.contrast;
+            document.getElementById('colorSchemeSelect').value = config.colorScheme;
+            document.getElementById('removeTransparentToggle').checked = config.removeTransparent;
+            document.getElementById('transparencyThresholdSlider').value = config.transparencyThreshold;
+            document.getElementById('transparencyThresholdValue').textContent = config.transparencyThreshold.toFixed(2);
+            document.getElementById('removeSolidBackgroundToggle').checked = config.removeSolidBackground;
+            document.getElementById('colorThresholdSlider').value = config.colorThreshold;
+            document.getElementById('colorThresholdValue').textContent = config.colorThreshold;
+            document.getElementById('backgroundTypeToRemoveSelect').value = config.backgroundTypeToRemove;
+            document.getElementById('backgroundTypeSelect').value = config.backgroundType;
+            document.getElementById('backgroundCharSizeSlider').value = config.backgroundCharSize;
+            document.getElementById('backgroundCharSizeValue').textContent = config.backgroundCharSize;
+            document.getElementById('backgroundIntensitySlider').value = config.backgroundIntensity;
+            document.getElementById('backgroundIntensityValue').textContent = config.backgroundIntensity;
+            document.getElementById('backgroundBrightnessSlider').value = config.backgroundBrightness;
+            document.getElementById('backgroundBrightnessValue').textContent = config.backgroundBrightness;
+            document.getElementById('gifBrightnessSlider').value = config.gifBrightness;
+            document.getElementById('gifBrightnessValue').textContent = config.gifBrightness.toFixed(1);
+            document.getElementById('backgroundSpeedSlider').value = config.backgroundSpeed;
+            document.getElementById('backgroundSpeedValue').textContent = config.backgroundSpeed;
+            document.getElementById('backgroundColorSelect').value = config.backgroundColor;
+            document.getElementById('fillBackgroundToggle').checked = config.fillBackground;
+            document.getElementById('imageGlitchSlider').value = config.imageGlitch;
+            document.getElementById('imageGlitchValue').textContent = config.imageGlitch;
+            document.getElementById('rgbDistortionSlider').value = config.rgbDistortion;
+            document.getElementById('rgbDistortionValue').textContent = config.rgbDistortion;
+            document.getElementById('glitchFrequencySlider').value = config.glitchFrequency;
+            document.getElementById('glitchFrequencyValue').textContent = config.glitchFrequency.toFixed(1);
+            document.getElementById('glitchTypeSelect').value = config.glitchType;
+            document.getElementById('syntaxColorSelect').value = config.syntaxColor;
+            document.getElementById('mouthXSlider').value = config.mouthPosition.x;
+            document.getElementById('mouthXValue').textContent = config.mouthPosition.x.toFixed(2);
+            document.getElementById('mouthYSlider').value = config.mouthPosition.y;
+            document.getElementById('mouthYValue').textContent = config.mouthPosition.y.toFixed(2);
+            document.getElementById('mouthWidthSlider').value = config.mouthPosition.width;
+            document.getElementById('mouthWidthValue').textContent = config.mouthPosition.width.toFixed(2);
+            document.getElementById('mouthHeightSlider').value = config.mouthPosition.height;
+            document.getElementById('mouthHeightValue').textContent = config.mouthPosition.height.toFixed(2);
+            
+            document.getElementById('mouthLatencySlider').addEventListener('input', updateConfig);
+            document.getElementById('sensitivitySlider').addEventListener('input', updateConfig);
+            document.getElementById('mouthGlowSlider').addEventListener('input', updateConfig);
+            document.getElementById('mouthAnimationSelect').addEventListener('change', updateConfig);
+            document.getElementById('mouthControlSlider').addEventListener('input', updateConfig);
+            document.getElementById('audioReactivitySlider').addEventListener('input', updateConfig);
+            document.getElementById('smoothingSlider').addEventListener('input', updateConfig);
+            document.getElementById('audioLatencySlider').addEventListener('input', updateConfig);
+            document.getElementById('noiseFilterSlider').addEventListener('input', updateConfig);
+            document.getElementById('audioInputSelect').addEventListener('change', updateConfig);
+            document.getElementById('audioModeSelect').addEventListener('change', updateConfig);
+            document.getElementById('loopAudioToggle').addEventListener('change', updateConfig);
+            document.getElementById('densitySlider').addEventListener('input', updateConfig);
+            document.getElementById('intensitySlider').addEventListener('input', updateConfig);
+            document.getElementById('charSetSelect').addEventListener('change', updateConfig);
+            document.getElementById('brightnessSlider').addEventListener('input', updateConfig);
+            document.getElementById('contrastSlider').addEventListener('input', updateConfig);
+            document.getElementById('colorSchemeSelect').addEventListener('change', updateConfig);
+            document.getElementById('removeTransparentToggle').addEventListener('change', updateConfig);
+            document.getElementById('transparencyThresholdSlider').addEventListener('input', updateConfig);
+            document.getElementById('removeSolidBackgroundToggle').addEventListener('change', updateConfig);
+            document.getElementById('colorThresholdSlider').addEventListener('input', updateConfig);
+            document.getElementById('backgroundTypeToRemoveSelect').addEventListener('change', updateConfig);
+            document.getElementById('backgroundTypeSelect').addEventListener('change', updateConfig);
+            document.getElementById('backgroundCharSizeSlider').addEventListener('input', updateConfig);
+            document.getElementById('backgroundIntensitySlider').addEventListener('input', updateConfig);
+            document.getElementById('backgroundBrightnessSlider').addEventListener('input', updateConfig);
+            document.getElementById('gifBrightnessSlider').addEventListener('input', updateConfig);
+            document.getElementById('backgroundSpeedSlider').addEventListener('input', updateConfig);
+            document.getElementById('backgroundColorSelect').addEventListener('change', updateConfig);
+            document.getElementById('fillBackgroundToggle').addEventListener('change', updateConfig);
+            document.getElementById('imageGlitchSlider').addEventListener('input', updateConfig);
+            document.getElementById('rgbDistortionSlider').addEventListener('input', updateConfig);
+            document.getElementById('glitchFrequencySlider').addEventListener('input', updateConfig);
+            document.getElementById('glitchTypeSelect').addEventListener('change', updateConfig);
+            document.getElementById('syntaxColorSelect').addEventListener('change', updateConfig);
+            document.getElementById('mouthXSlider').addEventListener('input', updateConfig);
+            document.getElementById('mouthYSlider').addEventListener('input', updateConfig);
+            document.getElementById('mouthWidthSlider').addEventListener('input', updateConfig);
+            document.getElementById('mouthHeightSlider').addEventListener('input', updateConfig);
+        }
+        
+        // Update configuration from UI
+        function updateConfig() {
+            config.mouthLatency = parseInt(document.getElementById('mouthLatencySlider').value);
+            document.getElementById('mouthLatencyValue').textContent = config.mouthLatency;
+            
+            config.sensitivity = parseInt(document.getElementById('sensitivitySlider').value);
+            document.getElementById('sensitivityValue').textContent = config.sensitivity;
+            
+            config.mouthGlow = parseInt(document.getElementById('mouthGlowSlider').value);
+            document.getElementById('mouthGlowValue').textContent = config.mouthGlow;
+            
+            config.mouthAnimation = document.getElementById('mouthAnimationSelect').value;
+            
+            config.mouthControl = parseInt(document.getElementById('mouthControlSlider').value);
+            document.getElementById('mouthControlValue').textContent = config.mouthControl;
+            
+            config.audioReactivity = parseInt(document.getElementById('audioReactivitySlider').value);
+            document.getElementById('audioReactivityValue').textContent = config.audioReactivity;
+            
+            config.smoothing = parseFloat(document.getElementById('smoothingSlider').value);
+            document.getElementById('smoothingValue').textContent = config.smoothing;
+            
+            config.noiseFilter = parseFloat(document.getElementById('noiseFilterSlider').value);
+            document.getElementById('noiseFilterValue').textContent = config.noiseFilter;
+            
+            config.audioLatency = parseInt(document.getElementById('audioLatencySlider').value);
+            document.getElementById('audioLatencyValue').textContent = config.audioLatency;
+            
+            config.audioInput = document.getElementById('audioInputSelect').value;
+            config.audioMode = document.getElementById('audioModeSelect').value;
+            
+            config.loopAudio = document.getElementById('loopAudioToggle').checked;
+            
+            switch(config.audioMode) {
+                case 'realtime':
+                    config.smoothing = 0.1;
+                    config.audioReactivity = 10;
+                    config.audioLatency = 10;
+                    break;
+                case 'balanced':
+                    config.smoothing = 0.3;
+                    config.audioReactivity = 8;
+                    config.audioLatency = 30;
+                    break;
+                case 'quality':
+                    config.smoothing = 0.8;
+                    config.audioReactivity = 5;
+                    config.audioLatency = 50;
+                    break;
+            }
+            
+            config.density = parseFloat(document.getElementById('densitySlider').value);
+            document.getElementById('densityValue').textContent = config.density.toFixed(1);
+            
+            config.intensity = parseFloat(document.getElementById('intensitySlider').value);
+            document.getElementById('intensityValue').textContent = config.intensity;
+            
+            config.charSet = document.getElementById('charSetSelect').value;
+            config.brightness = parseFloat(document.getElementById('brightnessSlider').value);
+            document.getElementById('brightnessValue').textContent = config.brightness;
+            
+            config.contrast = parseFloat(document.getElementById('contrastSlider').value);
+            document.getElementById('contrastValue').textContent = config.contrast;
+            
+            config.colorScheme = document.getElementById('colorSchemeSelect').value;
+            
+            config.removeTransparent = document.getElementById('removeTransparentToggle').checked;
+            config.transparencyThreshold = parseFloat(document.getElementById('transparencyThresholdSlider').value);
+            document.getElementById('transparencyThresholdValue').textContent = config.transparencyThreshold.toFixed(2);
+            
+            config.removeSolidBackground = document.getElementById('removeSolidBackgroundToggle').checked;
+            config.colorThreshold = parseInt(document.getElementById('colorThresholdSlider').value);
+            document.getElementById('colorThresholdValue').textContent = config.colorThreshold;
+            
+            config.backgroundTypeToRemove = document.getElementById('backgroundTypeToRemoveSelect').value;
+            
+            config.backgroundType = document.getElementById('backgroundTypeSelect').value;
+            config.backgroundCharSize = parseInt(document.getElementById('backgroundCharSizeSlider').value);
+            document.getElementById('backgroundCharSizeValue').textContent = config.backgroundCharSize;
+            
+            config.backgroundIntensity = parseInt(document.getElementById('backgroundIntensitySlider').value);
+            document.getElementById('backgroundIntensityValue').textContent = config.backgroundIntensity;
+            
+            config.backgroundBrightness = parseFloat(document.getElementById('backgroundBrightnessSlider').value);
+            document.getElementById('backgroundBrightnessValue').textContent = config.backgroundBrightness;
+            
+            config.gifBrightness = parseFloat(document.getElementById('gifBrightnessSlider').value);
+            document.getElementById('gifBrightnessValue').textContent = config.gifBrightness.toFixed(1);
+            
+            // Aplicar brillo al fondo GIF
+            if (gifBackground.style.display === 'block') {
+                gifBackground.style.opacity = config.gifBrightness;
+            }
+            
+            config.backgroundSpeed = parseFloat(document.getElementById('backgroundSpeedSlider').value);
+            document.getElementById('backgroundSpeedValue').textContent = config.backgroundSpeed;
+            
+            config.backgroundColor = document.getElementById('backgroundColorSelect').value;
+            config.fillBackground = document.getElementById('fillBackgroundToggle').checked;
+            
+            config.imageGlitch = parseInt(document.getElementById('imageGlitchSlider').value);
+            document.getElementById('imageGlitchValue').textContent = config.imageGlitch;
+            
+            config.rgbDistortion = parseInt(document.getElementById('rgbDistortionSlider').value);
+            document.getElementById('rgbDistortionValue').textContent = config.rgbDistortion;
+            
+            config.glitchFrequency = parseFloat(document.getElementById('glitchFrequencySlider').value);
+            document.getElementById('glitchFrequencyValue').textContent = config.glitchFrequency.toFixed(1);
+            
+            config.glitchType = document.getElementById('glitchTypeSelect').value;
+            config.syntaxColor = document.getElementById('syntaxColorSelect').value;
+            
+            config.mouthPosition.x = parseFloat(document.getElementById('mouthXSlider').value);
+            document.getElementById('mouthXValue').textContent = config.mouthPosition.x.toFixed(2);
+            
+            config.mouthPosition.y = parseFloat(document.getElementById('mouthYSlider').value);
+            document.getElementById('mouthYValue').textContent = config.mouthPosition.y.toFixed(2);
+            
+            config.mouthPosition.width = parseFloat(document.getElementById('mouthWidthSlider').value);
+            document.getElementById('mouthWidthValue').textContent = config.mouthPosition.width.toFixed(2);
+            
+            config.mouthPosition.height = parseFloat(document.getElementById('mouthHeightSlider').value);
+            document.getElementById('mouthHeightValue').textContent = config.mouthPosition.height.toFixed(2);
+            
+            if (analyser) {
+                analyser.smoothingTimeConstant = config.smoothing;
+                
+                switch(config.audioMode) {
+                    case 'realtime':
+                        analyser.fftSize = 32;
+                        break;
+                    case 'balanced':
+                        analyser.fftSize = 64;
+                        break;
+                    case 'quality':
+                        analyser.fftSize = 128;
+                        break;
+                }
+            }
+            
+            updateColorPreviews();
+            updateTransparentPreview();
+            
+            // Actualizar el brillo del overlay
+            brightnessOverlay.style.opacity = (1 - config.backgroundBrightness);
+            
+            initBackgroundChars();
+            
+            if (faceImage) {
+                generateAsciiData();
+            }
+        }
+        
+        // Update transparent preview
+        function updateTransparentPreview() {
+            const preview = document.getElementById('transparentPreview');
+            const previewText = document.getElementById('transparentPreviewText');
+            
+            if (!preview || !previewText) return;
+            
+            const previewCanvas = document.createElement('canvas');
+            const previewCtx = previewCanvas.getContext('2d');
+            previewCanvas.width = 200;
+            previewCanvas.height = 80;
+            
+            previewCtx.fillStyle = '#aaa';
+            previewCtx.fillRect(0, 0, 200, 80);
+            previewCtx.fillStyle = '#444';
+            for (let i = 0; i < 10; i++) {
+                for (let j = 0; j < 4; j++) {
+                    if ((i + j) % 2 === 0) {
+                        previewCtx.fillRect(i * 20, j * 20, 20, 20);
+                    }
+                }
+            }
+            
+            previewCtx.font = 'bold 24px monospace';
+            previewCtx.textAlign = 'center';
+            previewCtx.textBaseline = 'middle';
+            
+            if (config.removeTransparent || config.removeSolidBackground) {
+                previewCtx.fillStyle = 'rgba(0, 255, 100, 0.8)';
+                previewText.textContent = 'LIMPIO';
+            } else {
+                previewCtx.fillStyle = 'rgba(0, 255, 100, 0.8)';
+                previewText.textContent = 'FONDO';
+            }
+            
+            previewCtx.fillText('MUESTRA', 100, 40);
+            
+            preview.innerHTML = '';
+            preview.appendChild(previewCanvas);
+        }
+        
+        // Update color previews
+        function updateColorPreviews() {
+            const colorPreview = document.getElementById('colorPreview');
+            const bgColorPreview = document.getElementById('bgColorPreview');
+            
+            if (!colorPreview || !bgColorPreview) return;
+            
+            const colorScheme = colorSchemes[config.colorScheme];
+            if (colorScheme) {
+                colorPreview.style.background = `hsl(${colorScheme.hue}, ${colorScheme.saturation}%, ${colorScheme.lightness}%)`;
+            }
+            
+            const bgScheme = backgroundColorSchemes[config.backgroundColor];
+            if (bgScheme) {
+                if (bgScheme.random) {
+                    bgColorPreview.style.background = 'linear-gradient(45deg, #ff0000, #00ff00, #0000ff)';
+                } else {
+                    bgColorPreview.style.background = `hsl(${bgScheme.hue}, ${bgScheme.saturation}%, ${bgScheme.lightness}%)`;
+                }
+            }
+        }
+        
+        // Toggle extra controls
+        function toggleControls() {
+            controlsVisible = !controlsVisible;
+            document.getElementById('extraControls').classList.toggle('active');
+            document.getElementById('mainControl').classList.toggle('active');
+        }
+        
+        // Toggle config panel
+        function toggleConfig() {
+            configVisible = !configVisible;
+            document.getElementById('configPanel').classList.toggle('active');
+        }
+        
+        // Load default face
+        function loadDefaultFace() {
+            const defaultFace = new Image();
+            defaultFace.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Ccircle cx='100' cy='100' r='80' fill='%23333'/%3E%3Ccircle cx='70' cy='80' r='20' fill='%23111'/%3E%3Ccircle cx='130' cy='80' r='20' fill='%23111'/%3E%3Cellipse cx='100' cy='140' rx='40' ry='20' fill='%23222'/%3E%3C/svg%3E";
+            
+            defaultFace.onload = function() {
+                faceImage = defaultFace;
+                originalFaceImage = defaultFace;
+                generateAsciiData();
+            };
+        }
+        
+        // Load image
+        function loadImage(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            document.getElementById('loadingIndicator').style.display = 'block';
+            
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    faceImage = img;
+                    originalFaceImage = img;
+                    isEndImageActive = false;
+                    generateAsciiData();
+                    document.getElementById('loadingIndicator').style.display = 'none';
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        // Load end image
+        function loadEndImage(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            document.getElementById('loadingIndicator').style.display = 'block';
+            document.getElementById('loadingIndicator').textContent = 'CARGANDO IMAGEN DE FIN...';
+            
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    endImage = img;
+                    document.getElementById('loadingIndicator').style.display = 'none';
+                    showDialog('Imagen de fin cargada', 'Imagen de fin cargada correctamente.', false);
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        // Load background image or GIF
+        function loadBackgroundImage(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            document.getElementById('loadingIndicator').style.display = 'block';
+            document.getElementById('loadingIndicator').textContent = 'CARGANDO FONDO...';
+            
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                // Cargar el GIF/Imagen directamente en el elemento img
+                gifBackground.onload = function() {
+                    // Mostrar el fondo GIF
+                    gifBackground.style.display = 'block';
+                    gifBackground.style.opacity = config.gifBrightness;
+                    
+                    // Configurar el tipo de fondo como personalizado
+                    config.backgroundType = 'custom';
+                    document.getElementById('backgroundTypeSelect').value = 'custom';
+                    
+                    document.getElementById('loadingIndicator').style.display = 'none';
+                };
+                
+                gifBackground.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        // Clear background
+        function clearBackground() {
+            gifBackground.style.display = 'none';
+            gifBackground.src = '';
+            config.backgroundType = 'matrix';
+            document.getElementById('backgroundTypeSelect').value = 'matrix';
+        }
+        
+        // Apply transparency settings to current image
+        function applyTransparencySettings() {
+            if (!faceImage) return;
+            
+            document.getElementById('loadingIndicator').style.display = 'block';
+            document.getElementById('loadingIndicator').textContent = 'APLICANDO AJUSTES DE TRANSPARENCIA...';
+            
+            const processCanvas = document.createElement('canvas');
+            const processCtx = processCanvas.getContext('2d');
+            processCtx.imageSmoothingEnabled = false;
+            
+            processCanvas.width = faceImage.width;
+            processCanvas.height = faceImage.height;
+            
+            processCtx.drawImage(faceImage, 0, 0);
+            
+            const imageData = processCtx.getImageData(0, 0, processCanvas.width, processCanvas.height);
+            const data = imageData.data;
+            
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+                const a = data[i + 3] / 255;
+                
+                if (config.removeTransparent && a < config.transparencyThreshold) {
+                    data[i + 3] = 0;
+                    continue;
+                }
+                
+                if (config.removeSolidBackground) {
+                    if (config.backgroundTypeToRemove === 'white' || config.backgroundTypeToRemove === 'both') {
+                        if (r > 255 - config.colorThreshold && 
+                            g > 255 - config.colorThreshold && 
+                            b > 255 - config.colorThreshold) {
+                            data[i + 3] = 0;
+                            continue;
+                        }
+                    }
+                    
+                    if (config.backgroundTypeToRemove === 'black' || config.backgroundTypeToRemove === 'both') {
+                        if (r < config.colorThreshold && 
+                            g < config.colorThreshold && 
+                            b < config.colorThreshold) {
+                            data[i + 3] = 0;
+                            continue;
+                        }
+                    }
+                }
+            }
+            
+            processCtx.putImageData(imageData, 0, 0);
+            
+            const newImage = new Image();
+            newImage.onload = function() {
+                faceImage = newImage;
+                generateAsciiData();
+                document.getElementById('loadingIndicator').style.display = 'none';
+            };
+            newImage.src = processCanvas.toDataURL('image/png');
+        }
+        
+        // Load audio
+        function loadAudio() {
+            if (config.audioInput === 'file') {
+                document.getElementById('audioFileInput').click();
+            } else {
+                startMicrophone();
+            }
+        }
+        
+        // Handle audio file
+        function handleAudioFile(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            if (audioSource) {
+                audioSource.disconnect();
+                audioSource = null;
+            }
+            if (audioElement) {
+                audioElement.pause();
+                audioElement = null;
+            }
+            
+            if (!audioContext || audioContext.state === 'closed') {
+                try {
+                    window.AudioContext = window.AudioContext || window.webkitAudioContext;
+                    audioContext = new AudioContext({
+                        latencyHint: 'interactive',
+                        sampleRate: 44100
+                    });
+                } catch (e) {
+                    audioContext = new AudioContext();
+                }
+            }
+            
+            audioElement = new Audio();
+            audioElement.autoplay = false;
+            audioElement.loop = config.loopAudio;
+            
+            const audioUrl = URL.createObjectURL(file);
+            audioElement.src = audioUrl;
+            
+            // Manejar el evento cuando el audio termine
+            audioElement.addEventListener('ended', onAudioEnded);
+            
+            audioElement.addEventListener('loadedmetadata', () => {
+                analyser = audioContext.createAnalyser();
+                
+                switch(config.audioMode) {
+                    case 'realtime':
+                        analyser.fftSize = 32;
+                        break;
+                    case 'balanced':
+                        analyser.fftSize = 64;
+                        break;
+                    case 'quality':
+                        analyser.fftSize = 128;
+                        break;
+                }
+                
+                analyser.smoothingTimeConstant = config.smoothing;
+                
+                audioSource = audioContext.createMediaElementSource(audioElement);
+                audioSource.connect(analyser);
+                analyser.connect(audioContext.destination);
+                
+                audioActive = true;
+                audioPlaying = false;
+                isEndImageActive = false;
+            });
+        }
+        
+        // Función llamada cuando el audio termina
+        function onAudioEnded() {
+            audioPlaying = false;
+            soundLevel = 0;
+            isEndImageActive = true;
+            
+            // Cambiar a la imagen de fin si está cargada
+            if (endImage) {
+                faceImage = endImage;
+                generateAsciiData();
+            }
+            
+            // Si no está configurado para repetir, desactivar audio
+            if (!config.loopAudio) {
+                audioActive = false;
+            }
+        }
+        
+        // Start microphone
+        async function startMicrophone() {
+            try {
+                if (audioContext && audioContext.state !== 'closed') {
+                    await audioContext.close();
+                }
+                
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        sampleRate: 44100,
+                        channelCount: 1,
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    }
+                });
+                
+                window.AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioContext = new AudioContext({
+                    latencyHint: 'interactive',
+                    sampleRate: 44100
+                });
+                
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 32;
+                analyser.smoothingTimeConstant = config.smoothing;
+                
+                audioSource = audioContext.createMediaStreamSource(stream);
+                audioSource.connect(analyser);
+                analyser.connect(audioContext.destination);
+                
+                audioActive = true;
+                audioPlaying = true;
+                isEndImageActive = false;
+                
+                analyzeAudio();
+            } catch (err) {
+                console.error('Error accessing microphone:', err);
+                showDialog('Error de Micrófono', 'No se pudo acceder al micrófono. Asegúrate de haber concedido los permisos necesarios.', false);
+            }
+        }
+        
+        // Play audio
+        function playAudio() {
+            if (!audioActive || !audioElement) return;
+            
+            // Si estamos en imagen de fin, restaurar la original
+            if (isEndImageActive) {
+                faceImage = originalFaceImage;
+                generateAsciiData();
+                isEndImageActive = false;
+            }
+            
+            if (audioPlaying) return;
+            
+            audioElement.play().catch(e => {
+                console.error('Error playing audio:', e);
+                showDialog('Error de Audio', 'No se pudo reproducir el audio: ' + e.message, false);
+            });
+            
+            audioPlaying = true;
+            
+            analyzeAudio();
+        }
+        
+        // Pause audio
+        function pauseAudio() {
+            if (!audioActive || !audioElement || !audioPlaying) return;
+            
+            audioElement.pause();
+            audioPlaying = false;
+            soundLevel = 0;
+        }
+        
+        // Stop audio
+        function stopAudio() {
+            if (!audioActive || !audioElement) return;
+            
+            audioElement.pause();
+            audioElement.currentTime = 0;
+            audioPlaying = false;
+            soundLevel = 0;
+            isEndImageActive = false;
+            
+            // Restaurar imagen original si estamos en imagen de fin
+            if (endImage && faceImage === endImage) {
+                faceImage = originalFaceImage;
+                generateAsciiData();
+            }
+        }
+        
+        // Analyze audio with minimal latency - OPTIMIZADO
+        function analyzeAudio() {
+            if (!analyser || !audioActive || !audioPlaying) {
+                requestAnimationFrame(analyzeAudio);
+                return;
+            }
+            
+            const now = Date.now();
+            const minDelay = Math.max(5, config.audioLatency); // Mínimo 5ms para evitar sobrecarga
+            
+            if (now - lastAudioUpdate < minDelay) {
+                requestAnimationFrame(analyzeAudio);
+                return;
+            }
+            lastAudioUpdate = now;
+            
+            const buffer = new Uint8Array(analyser.frequencyBinCount);
+            analyser.getByteTimeDomainData(buffer);
+            
+            let sum = 0;
+            // Optimizar: procesar solo una muestra cada 2 para reducir carga
+            for (let i = 0; i < buffer.length; i += 2) {
+                const val = buffer[i] - 128;
+                sum += val * val;
+            }
+            const rms = Math.sqrt(sum / (buffer.length / 2));
+            
+            const filteredRMS = Math.max(0, rms - config.noiseFilter * 128);
+            const newSoundLevel = Math.min(1, (filteredRMS / 20) * (config.audioReactivity / 5));
+            
+            if (Math.abs(newSoundLevel - lastSoundLevel) > 0.02 || newSoundLevel < lastSoundLevel) {
+                soundLevel = newSoundLevel;
+                lastSoundLevel = newSoundLevel;
+            }
+            
+            requestAnimationFrame(analyzeAudio);
+        }
+        
+        // Generate ASCII data from image with transparency handling - OPTIMIZADO
+        function generateAsciiData() {
+            if (!faceImage) return;
+            
+            const processCanvas = document.createElement('canvas');
+            const processCtx = processCanvas.getContext('2d');
+            processCtx.imageSmoothingEnabled = false;
+            
+            // Optimizar: tamaño basado en densidad para reducir procesamiento
+            const maxSize = Math.min(250, 100 + config.density * 30);
+            const aspectRatio = faceImage.width / faceImage.height;
+            let width = maxSize;
+            let height = maxSize;
+            
+            if (aspectRatio > 1) {
+                height = Math.round(maxSize / aspectRatio);
+            } else {
+                width = Math.round(maxSize * aspectRatio);
+            }
+            
+            processCanvas.width = width;
+            processCanvas.height = height;
+            
+            processCtx.drawImage(faceImage, 0, 0, width, height);
+            
+            const imageData = processCtx.getImageData(0, 0, width, height);
+            const data = imageData.data;
+            
+            asciiData = [];
+            
+            // Optimizar: paso variable basado en densidad
+            const step = Math.max(1, Math.floor(20 / config.density));
+            
+            for (let y = 0; y < height; y += step) {
+                const row = [];
+                for (let x = 0; x < width; x += step) {
+                    const index = (y * width + x) * 4;
+                    const r = data[index];
+                    const g = data[index + 1];
+                    const b = data[index + 2];
+                    const a = data[index + 3] / 255;
+                    
+                    if (config.removeTransparent && a < config.transparencyThreshold) {
+                        row.push({
+                            char: ' ',
+                            luminance: 0,
+                            x: x / width,
+                            y: y / height,
+                            transparent: true
+                        });
+                        continue;
+                    }
+                    
+                    if (config.removeSolidBackground) {
+                        if (config.backgroundTypeToRemove === 'white' || config.backgroundTypeToRemove === 'both') {
+                            if (r > 255 - config.colorThreshold && 
+                                g > 255 - config.colorThreshold && 
+                                b > 255 - config.colorThreshold) {
+                                row.push({
+                                    char: ' ',
+                                    luminance: 0,
+                                    x: x / width,
+                                    y: y / height,
+                                    transparent: true
+                                });
+                                continue;
+                            }
+                        }
+                        
+                        if (config.backgroundTypeToRemove === 'black' || config.backgroundTypeToRemove === 'both') {
+                            if (r < config.colorThreshold && 
+                                g < config.colorThreshold && 
+                                b < config.colorThreshold) {
+                                row.push({
+                                    char: ' ',
+                                    luminance: 0,
+                                    x: x / width,
+                                    y: y / height,
+                                    transparent: true
+                                });
+                                continue;
+                            }
+                        }
+                    }
+                    
+                    let luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+                    luminance = ((luminance / 255) - 0.5) * config.contrast + 0.5;
+                    luminance = Math.max(0, Math.min(1, luminance));
+                    
+                    const chars = charSets[config.charSet];
+                    const charIndex = Math.floor(luminance * (chars.length - 1));
+                    const char = chars[charIndex];
+                    
+                    row.push({
+                        char,
+                        luminance,
+                        x: x / width,
+                        y: y / height
+                    });
+                }
+                asciiData.push(row);
+            }
+        }
+        
+        // Draw ASCII face with glitch effects and mouth animation - OPTIMIZADO
+        function drawAsciiFace() {
+            if (!asciiData || !asciiData.length) return;
+            
+            const scheme = colorSchemes[config.colorScheme];
+            let baseHue = scheme.hue;
+            
+            const containerAspect = canvas.width / canvas.height;
+            const faceAspect = asciiData[0].length / asciiData.length;
+            
+            let drawWidth, drawHeight;
+            if (containerAspect > faceAspect) {
+                drawHeight = canvas.height * 0.8;
+                drawWidth = drawHeight * faceAspect;
+            } else {
+                drawWidth = canvas.width * 0.9;
+                drawHeight = drawWidth / faceAspect;
+            }
+            
+            const startX = (canvas.width - drawWidth) / 2;
+            const startY = (canvas.height - drawHeight) / 2;
+            
+            const mouthX = startX + config.mouthPosition.x * drawWidth;
+            const mouthY = startY + config.mouthPosition.y * drawHeight;
+            const mouthWidth = config.mouthPosition.width * drawWidth * (config.mouthControl / 50);
+            const mouthHeight = config.mouthPosition.height * drawHeight * (config.mouthControl / 50);
+            
+            // Optimizar: precalcular valores que se repiten
+            const now = Date.now();
+            const shouldApplyGlitch = config.imageGlitch > 0;
+            const glitchChance = config.imageGlitch * config.glitchFrequency * 0.1;
+            
+            for (let i = 0; i < asciiData.length; i++) {
+                for (let j = 0; j < asciiData[i].length; j++) {
+                    const pixel = asciiData[i][j];
+                    
+                    if (pixel.transparent) continue;
+                    
+                    const posX = startX + j * (drawWidth / asciiData[i].length);
+                    const posY = startY + i * (drawHeight / asciiData.length);
+                    
+                    const inMouth = (
+                        posX > mouthX - mouthWidth/2 && 
+                        posX < mouthX + mouthWidth/2 &&
+                        posY > mouthY - mouthHeight/2 &&
+                        posY < mouthY + mouthHeight/2
+                    );
+                    
+                    let glitchOffsetX = 0;
+                    let glitchOffsetY = 0;
+                    let glitchColorShift = 0;
+                    let isGlitched = false;
+                    
+                    // Aplicar efectos de glitch basados en el tipo - OPTIMIZADO
+                    if (shouldApplyGlitch && Math.random() < glitchChance) {
+                        isGlitched = true;
+                        switch(config.glitchType) {
+                            case 'static':
+                                glitchOffsetX = (Math.random() - 0.5) * config.imageGlitch * 3;
+                                glitchOffsetY = (Math.random() - 0.5) * config.imageGlitch * 1;
+                                glitchColorShift = Math.floor(Math.random() * 3) * 120;
+                                break;
+                            case 'scanline':
+                                if (Math.random() < 0.3) {
+                                    glitchOffsetX = (Math.random() - 0.5) * config.imageGlitch * 5;
+                                }
+                                break;
+                            case 'datamosh':
+                                glitchOffsetX = (Math.random() - 0.5) * config.imageGlitch * 10;
+                                glitchOffsetY = (Math.random() - 0.5) * config.imageGlitch * 2;
+                                glitchColorShift = Math.floor(Math.random() * 360);
+                                break;
+                            case 'vhs':
+                                glitchOffsetY = (Math.random() - 0.5) * config.imageGlitch * 2;
+                                glitchColorShift = 120;
+                                break;
+                            case 'analog':
+                                glitchOffsetX = Math.sin(now * 0.01) * config.imageGlitch * 2;
+                                glitchColorShift = 60;
+                                break;
+                            case 'digital':
+                                glitchOffsetX = (Math.random() > 0.5 ? 1 : -1) * config.imageGlitch * 4;
+                                glitchColorShift = 300;
+                                break;
+                            case 'data':
+                                glitchOffsetX = Math.sin(now * 0.02 + j * 0.1) * config.imageGlitch * 3;
+                                glitchOffsetY = Math.cos(now * 0.015 + i * 0.1) * config.imageGlitch * 2;
+                                glitchColorShift = (j * 10 + i * 5) % 360;
+                                break;
+                            case 'pixel':
+                                glitchOffsetX = Math.floor(Math.random() * 4) - 2;
+                                glitchOffsetY = Math.floor(Math.random() * 4) - 2;
+                                break;
+                            case 'offset':
+                                glitchOffsetX = Math.sin(i * 0.1) * config.imageGlitch * 2;
+                                glitchOffsetY = Math.cos(j * 0.1) * config.imageGlitch * 1;
+                                break;
+                            case 'noise':
+                                glitchOffsetX = (Math.random() - 0.5) * config.imageGlitch * 5;
+                                glitchOffsetY = (Math.random() - 0.5) * config.imageGlitch * 3;
+                                glitchColorShift = Math.random() * 360;
+                                break;
+                            case 'tv':
+                                if (Math.random() < 0.1) {
+                                    glitchOffsetX = (Math.random() - 0.5) * config.imageGlitch * 8;
+                                    glitchOffsetY = (Math.random() - 0.5) * config.imageGlitch * 4;
+                                }
+                                break;
+                            case 'warp':
+                                glitchOffsetX = Math.sin(i * 0.2 + now * 0.001) * config.imageGlitch * 3;
+                                glitchOffsetY = Math.cos(j * 0.2 + now * 0.001) * config.imageGlitch * 2;
+                                break;
+                            case 'jitter':
+                                glitchOffsetX = (Math.random() - 0.5) * config.imageGlitch * 6;
+                                glitchOffsetY = (Math.random() - 0.5) * config.imageGlitch * 4;
+                                break;
+                            case 'slit':
+                                glitchOffsetX = Math.sin(j * 0.1 + now * 0.002) * config.imageGlitch * 4;
+                                break;
+                            case 'glitchcore':
+                                glitchOffsetX = Math.sin(i * 0.3 + now * 0.003) * config.imageGlitch * 5;
+                                glitchOffsetY = Math.cos(j * 0.3 + now * 0.003) * config.imageGlitch * 3;
+                                glitchColorShift = (i * 5 + j * 3 + now * 0.001) % 360;
+                                break;
+                        }
+                    }
+                    
+                    let charSize = 10 + pixel.luminance * 10 * config.intensity;
+                    let offsetX = glitchOffsetX;
+                    let offsetY = glitchOffsetY;
+                    let glow = 0;
+                    
+                    if (inMouth && audioActive && audioPlaying) {
+                        const openness = soundLevel * (config.sensitivity / 5);
+                        const mouthControlFactor = config.mouthControl / 50;
+                        
+                        switch(config.mouthAnimation) {
+                            case 'natural':
+                                charSize = 10 + pixel.luminance * 10 * config.intensity + openness * 15 * mouthControlFactor;
+                                offsetY = openness * 25 * mouthControlFactor;
+                                glow = config.mouthGlow * openness * mouthControlFactor;
+                                break;
+                            case 'square':
+                                charSize = 10 + pixel.luminance * 10 * config.intensity + openness * 20 * mouthControlFactor;
+                                offsetY = openness * 30 * mouthControlFactor;
+                                glow = config.mouthGlow * openness * 1.2 * mouthControlFactor;
+                                break;
+                            case 'elastic':
+                                charSize = 10 + pixel.luminance * 10 * config.intensity + openness * 12 * mouthControlFactor;
+                                offsetY = openness * 20 * mouthControlFactor + Math.sin(now * 0.01) * 5 * openness * mouthControlFactor;
+                                glow = config.mouthGlow * openness * 0.8 * mouthControlFactor;
+                                break;
+                            case 'wave':
+                                charSize = 10 + pixel.luminance * 10 * config.intensity + openness * 10 * mouthControlFactor;
+                                offsetY = openness * 25 * mouthControlFactor + Math.sin(j * 0.2 + now * 0.02) * 8 * openness * mouthControlFactor;
+                                glow = config.mouthGlow * openness * mouthControlFactor;
+                                break;
+                            case 'pulse':
+                                charSize = 10 + pixel.luminance * 10 * config.intensity + openness * 8 * mouthControlFactor;
+                                offsetY = openness * 20 * mouthControlFactor;
+                                glow = config.mouthGlow * openness * (0.8 + Math.sin(now * 0.03) * 0.2) * mouthControlFactor;
+                                break;
+                            case 'bounce':
+                                charSize = 10 + pixel.luminance * 10 * config.intensity + openness * 18 * mouthControlFactor;
+                                offsetY = openness * 35 * mouthControlFactor + Math.sin(now * 0.05) * 3 * openness * mouthControlFactor;
+                                glow = config.mouthGlow * openness * 1.5 * mouthControlFactor;
+                                break;
+                            case 'bar':
+                                charSize = 10 + pixel.luminance * 10 * config.intensity + openness * 25 * mouthControlFactor;
+                                offsetY = openness * 40 * mouthControlFactor * (Math.sin(j * 0.5 + now * 0.05) * 0.5 + 0.5);
+                                glow = config.mouthGlow * openness * 1.3 * mouthControlFactor;
+                                break;
+                            case 'wave2':
+                                charSize = 10 + pixel.luminance * 10 * config.intensity + openness * 15 * mouthControlFactor;
+                                offsetY = openness * 30 * mouthControlFactor + Math.sin(j * 0.3 + now * 0.03) * 10 * openness * mouthControlFactor;
+                                glow = config.mouthGlow * openness * (0.9 + Math.sin(now * 0.02) * 0.1) * mouthControlFactor;
+                                break;
+                            case 'rain':
+                                charSize = 10 + pixel.luminance * 10 * config.intensity + openness * 12 * mouthControlFactor;
+                                offsetY = openness * 20 * mouthControlFactor + Math.sin(j * 0.4 + i * 0.2 + now * 0.04) * 8 * openness * mouthControlFactor;
+                                glow = config.mouthGlow * openness * 0.7 * mouthControlFactor;
+                                break;
+                            case 'spiral':
+                                const angle = Math.atan2(posY - mouthY, posX - mouthX);
+                                const dist = Math.sqrt(Math.pow(posX - mouthX, 2) + Math.pow(posY - mouthY, 2));
+                                charSize = 10 + pixel.luminance * 10 * config.intensity + openness * 10 * mouthControlFactor;
+                                offsetX = Math.cos(angle + now * 0.001) * openness * 20 * mouthControlFactor * (dist / 50);
+                                offsetY = Math.sin(angle + now * 0.001) * openness * 20 * mouthControlFactor * (dist / 50);
+                                glow = config.mouthGlow * openness * 0.9 * mouthControlFactor;
+                                break;
+                            case 'particles':
+                                charSize = 10 + pixel.luminance * 10 * config.intensity + openness * 15 * mouthControlFactor;
+                                offsetX = Math.sin(j * 0.2 + now * 0.01) * openness * 15 * mouthControlFactor;
+                                offsetY = Math.cos(i * 0.2 + now * 0.01) * openness * 15 * mouthControlFactor;
+                                glow = config.mouthGlow * openness * 1.1 * mouthControlFactor;
+                                break;
+                        }
+                    }
+                    
+                    if (glow > 0) {
+                        ctx.shadowBlur = glow;
+                        ctx.shadowColor = `hsla(${baseHue}, 100%, 70%, 0.7)`;
+                    } else {
+                        ctx.shadowBlur = 0;
+                    }
+                    
+                    if (scheme.rainbow) {
+                        baseHue = (j * 10 + i * 5 + now * 0.01) % 360;
+                    }
+                    
+                    let charHue = baseHue;
+                    if (config.syntaxColor !== 'none' && syntaxColorSchemes[config.syntaxColor]) {
+                        const schemeFunc = syntaxColorSchemes[config.syntaxColor];
+                        if (config.syntaxColor === 'binary') {
+                            charHue = schemeFunc(pixel.char);
+                        } else if (config.syntaxColor === 'gradient') {
+                            charHue = schemeFunc(j, i, asciiData[i].length, asciiData.length);
+                        } else if (config.syntaxColor === 'pulse') {
+                            charHue = schemeFunc(now, j, i);
+                        } else {
+                            charHue = schemeFunc(j, i, now);
+                        }
+                    }
+                    
+                    if (isGlitched) {
+                        // Aplicar efecto de glitch con separación RGB
+                        ctx.fillStyle = `hsla(${(charHue + glitchColorShift) % 360}, 100%, 70%, ${config.brightness * (0.3 + pixel.luminance * 0.7) * config.intensity})`;
+                        ctx.font = `bold ${charSize}px monospace`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        
+                        if (config.rgbDistortion > 0) {
+                            // Separación RGB para efecto de glitch avanzado
+                            ctx.fillStyle = `hsla(0, 100%, 70%, ${config.brightness * (0.3 + pixel.luminance * 0.7) * config.intensity})`;
+                            ctx.fillText(pixel.char, posX + offsetX - config.rgbDistortion, posY + offsetY - config.rgbDistortion * 0.5);
+                            
+                            ctx.fillStyle = `hsla(120, 100%, 70%, ${config.brightness * (0.3 + pixel.luminance * 0.7) * config.intensity})`;
+                            ctx.fillText(pixel.char, posX + offsetX, posY + offsetY);
+                            
+                            ctx.fillStyle = `hsla(240, 100%, 70%, ${config.brightness * (0.3 + pixel.luminance * 0.7) * config.intensity})`;
+                            ctx.fillText(pixel.char, posX + offsetX + config.rgbDistortion, posY + offsetY + config.rgbDistortion * 0.5);
+                        } else {
+                            ctx.fillText(pixel.char, posX + offsetX, posY + offsetY);
+                        }
+                    } else {
+                        ctx.fillStyle = `hsla(${charHue}, 100%, 70%, ${config.brightness * (0.3 + pixel.luminance * 0.7) * config.intensity})`;
+                        ctx.font = `bold ${charSize}px monospace`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(pixel.char, posX + offsetX, posY + offsetY);
+                    }
+                }
+            }
+        }
+        
+        // Draw background animation
+        function drawBackgroundAnimation() {
+            if (!config.fillBackground) return;
+            
+            if (config.backgroundType === 'custom' && gifBackground.style.display === 'block') return;
+            
+            const now = Date.now();
+            const intensity = config.backgroundIntensity / 10;
+            const brightness = config.backgroundBrightness;
+            const speed = config.backgroundSpeed;
+            const bgType = config.backgroundType;
+            
+            if (backgroundAnimations[bgType]) {
+                backgroundAnimations[bgType](ctx, canvas.width, canvas.height, now, intensity, brightness, speed);
+            }
+            
+            drawBackgroundFill();
+        }
+        
+        // Draw background fill with ASCII characters
+        function drawBackgroundFill() {
+            if (!config.fillBackground || (config.backgroundType === 'custom' && gifBackground.style.display === 'block')) return;
+            
+            const now = Date.now();
+            const intensity = config.backgroundIntensity / 10;
+            const brightness = config.backgroundBrightness;
+            const charSet = charSets[config.charSet] || charSets.binary;
+            
+            const cellSize = 8;
+            const cols = Math.floor(canvas.width / cellSize);
+            const rows = Math.floor(canvas.height / cellSize);
+            
+            for (let i = 0; i < cols; i++) {
+                for (let j = 0; j < rows; j++) {
+                    const x = i * cellSize + cellSize/2;
+                    const y = j * cellSize + cellSize/2;
+                    
+                    // Optimizar: saltar más píxeles para reducir carga
+                    if (Math.random() > 0.3) continue;
+                    
+                    const char = charSet[Math.floor(Math.random() * charSet.length)];
+                    const size = config.backgroundCharSize * 0.8;
+                    const opacity = 0.05 + Math.random() * 0.1;
+                    
+                    let charHue = backgroundColorSchemes[config.backgroundColor].hue;
+                    if (config.backgroundColor === 'random') {
+                        charHue = (i * 5 + j * 3 + now * 0.001) % 360;
+                    }
+                    
+                    ctx.fillStyle = `hsla(${charHue}, 100%, 50%, ${opacity * intensity * brightness * 0.6})`;
+                    ctx.font = `${size}px monospace`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(char, x, y);
+                }
+            }
+        }
+        
+        // Animation loop - OPTIMIZADO para mejor rendimiento
+        function animate(timestamp) {
+            const elapsed = timestamp - lastRenderTime;
+            
+            // Control de FPS para reducir carga de CPU
+            if (elapsed < 33) { // ~30 FPS máximo para reducir carga
+                requestAnimationFrame(animate);
+                return;
+            }
+            lastRenderTime = timestamp;
+            
+            // Limpiar solo el canvas (el fondo GIF se maneja por separado)
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Dibujar animaciones de fondo ASCII solo si no hay GIF
+            drawBackgroundAnimation();
+            
+            // Dibujar la cara ASCII
+            if (asciiData) {
+                drawAsciiFace();
+            }
+            
+            requestAnimationFrame(animate);
+        }
+        
+        // Add event listener for DOMContentLoaded
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
